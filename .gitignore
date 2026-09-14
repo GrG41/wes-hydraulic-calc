@@ -1,0 +1,22 @@
+# 依赖与构建产物
+node_modules/
+dist/
+dev-dist/
+coverage/
+.vite/
+*.local
+
+# 测试与工具产物
+playwright-report/
+test-results/
+.typst-cache/
+
+# 编辑器与系统
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# 标准原件与技术文献（版权原因暂不纳入版本库；待工程师答复问卷 Q16 后调整）
+# 见 docs/DECISIONS.md DEC-012 遗留待答项
+reference/

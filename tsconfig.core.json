@@ -1,0 +1,33 @@
+{
+  // ─────────────────────────────────────────────────────────────────────────
+  //  src/core 专用编译配置
+  //
+  //  作用：在【编译期】强制 src/core 零浏览器 API 依赖 —— lib 中不含 DOM，
+  //        types 为空（不引入任何全局类型）。
+  //        一旦 core 里出现 document / window / localStorage / fetch 等，
+  //        `pnpm typecheck` 立即失败。
+  //
+  //  参见：AGENTS.md「硬性要求：src/core/ 必须零 UI 依赖、零浏览器 API 依赖，
+  //        可在 Node 环境直接运行测试」
+  // ─────────────────────────────────────────────────────────────────────────
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+
+    "types": []
+  },
+  "include": ["src/core"]
+}
