@@ -148,6 +148,22 @@ export type DesignHeadSpec =
   /** 由校核流量下的堰上水头 H_max 按高/低堰规则推求，m */
   | { readonly kind: 'from-max-head'; readonly maxHead: number }
 
+/**
+ * 淹没系数 σs 的给定方式（DEC-022 路径 A）。
+ *
+ * ⚠️ 图 A.2.1-3 无法从现有扫描件可靠数字化（DEC-021），故 **σs 不由程序自动查表**：
+ *   · 下游水位不高于堰顶（hs ≤ 0）时，程序判定为不淹没并取 σs = 1.0；
+ *   · 下游水位高于堰顶（hs > 0）时，须由使用者按标准图 A.2.1-3 查图后输入。
+ *
+ * 待工程师提供该图清晰版本并完成数字化后，将新增 `'table'` 分支启用自动查表，
+ * 届时本人工输入自动降级为兜底。
+ */
+export type SubmergenceSpec =
+  /** 由程序判定：hs ≤ 0 取 σs = 1.0；hs > 0 时报输入错误（缺参数），不默认取值 */
+  | { readonly kind: 'auto-free-flow' }
+  /** 使用者按标准图 A.2.1-3 查图输入；校验 0.20 ≤ σs ≤ 1.0 */
+  | { readonly kind: 'manual'; readonly sigmaS: number }
+
 /** 运行水位工况。 */
 export interface OperationCase {
   /** 堰上水头 H（堰顶以上水深），m。主公式中 H₀ = H + v²/(2g) */
@@ -217,6 +233,8 @@ export interface CalculationInput {
   readonly upstreamSection: UpstreamSection
   readonly designHead: DesignHeadSpec
   readonly operation: OperationCase
+  /** 淹没系数 σs 的给定方式（DEC-022 路径 A） */
+  readonly submergence: SubmergenceSpec
   readonly chute: ChuteConfig
   readonly boundary: WaterProfileBoundary
   readonly solver: SolverOptions
@@ -242,7 +260,7 @@ export interface DischargeIteration {
   readonly upstreamSlopeFactorC: number
   /** 闸墩侧收缩系数 ε */
   readonly lateralContractionEpsilon: number
-  /** 淹没系数 σs（数字化图 A.2.1-3） */
+  /** 淹没系数 σs（DEC-022 路径 A：不淹没时自动取 1.0，否则为人工查图输入值） */
   readonly submergenceFactorSigmaS: number
   /** 本次迭代求得的流量 Q，m³/s */
   readonly dischargeQ: number
