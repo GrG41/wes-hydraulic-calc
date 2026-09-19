@@ -77,6 +77,12 @@ export type CalcResult<T> =
 export interface WeirGeometry {
   /** 堰顶高程，m */
   readonly crestElevation: number
+  /**
+   * 下游河床高程，m。
+   * 用于计算**下游堰高 `P₂ = 堰顶高程 − 下游河床高程`** ——
+   * 图 A.2.1-3（淹没系数 σs）的横轴变量为 `P₂/H₀`，表 A.2.1-3 的淹没度用 `hs/H₀`。
+   */
+  readonly downstreamBedElevation: number
   /** 上游堰高 P₁（堰顶高程 − 上游堰底高程），m。用于 P₁/H_d 与高低堰判定 */
   readonly upstreamHeightP1: number
   /** 上游堰面坡度 Δy/Δx */
@@ -275,8 +281,13 @@ export interface DischargeResult {
     readonly headRatioH0OverHd: number
     /** P₁/H_d，表 A.2.1-1 列变量 */
     readonly pierHeightRatioP1OverHd: number
-    /** 淹没度 hs/H₀，图 A.2.1-3 纵轴变量 */
+    /** 淹没度 hs/H₀，图 A.2.1-3 **纵轴**变量（hs = 下游水位 − 堰顶高程） */
     readonly submergenceRatioHsOverH0: number
+    /**
+     * 下游堰高比 P₂/H₀，图 A.2.1-3 **横轴**变量。
+     * `P₂ = 堰顶高程 − 下游河床高程`。**注意：不是 P₁/H_d。**
+     */
+    readonly downstreamHeightRatioP2OverH0: number
     /** 定型设计水头 H_d，m */
     readonly designHeadHd: number
     /** 是否按高堰规则确定 H_d */
