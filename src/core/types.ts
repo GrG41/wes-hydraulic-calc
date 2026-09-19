@@ -81,6 +81,14 @@ export interface WeirGeometry {
   readonly upstreamHeightP1: number
   /** 上游堰面坡度 Δy/Δx */
   readonly upstreamSlope: UpstreamSlope
+  /**
+   * 幂曲线系数 k 在 [2.0, 2.2] 区间内的覆盖值。
+   *
+   * 仅当 P₁/H_d ≤ 1.0 时生效（标准 A.1.1 给出区间而非定值）。
+   * 未提供时取中值 **2.1**（DEC-019 A-6）。取值须在 [2.0, 2.2] 内，否则报输入错误。
+   * ⚠️ 这是本设计中唯一取自标准给定区间的系数取值，计算书须标注实际取值与出处。
+   */
+  readonly powerCurveKOverride?: number
   /** 上游堰头曲线型式 */
   readonly crestCurveType: CrestCurveType
   /** 溢流堰总净宽 B，m（多孔时为各孔净宽之和，标准 A.2.1 符号定义） */
@@ -114,7 +122,8 @@ export interface UpstreamSection {
   readonly bedElevation: number
   /**
    * 断面形状。'rectangular' 用宽度；'trapezoidal' 用底宽 + 边坡系数。
-   * 复式断面留待 Gate 确认（ALGORITHM.md §9 A-4）。
+   * 面积算法（DEC-019 A-4）：矩形 `A = b·h`；对称梯形 `A = (b + m·h)·h`。
+   * **复式断面不在本期范围**，界面提示使用者按等效梯形输入。
    */
   readonly shape:
     | { readonly kind: 'rectangular'; readonly bottomWidth: number }
@@ -147,7 +156,10 @@ export interface ChuteConfig {
   readonly bedSlope: number
   /** 泄槽底坡角度 θ，(°) —— 用于公式 F-5 的 cosθ 项 */
   readonly bedAngleDeg: number
-  /** 槽身糙率 n（表 A.8）。工程师确认取具体值而非区间（待 Gate 确认，ALGORITHM.md §9 A-8） */
+  /**
+   * 槽身糙率 n（表 A.8）。
+   * 表 A.8 给出的是**区间**，故由使用者输入具体值，界面以该区间作提示与校验范围（DEC-019 A-8）。
+   */
   readonly roughness: number
   /** 泄槽断面宽度，m */
   readonly width: number
@@ -296,7 +308,10 @@ export interface ProfilePoint {
 export interface WeirProfileResult {
   /** 定型设计水头 H_d，m */
   readonly designHeadHd: number
-  /** 幂曲线参数 k（表 A.1.1；P₁/H_d ≤ 1.0 时取 2.0~2.2，待 Gate 确认） */
+  /**
+   * 幂曲线参数 k。
+   * `P₁/H_d > 1.0` 时查表 A.1.1；`P₁/H_d ≤ 1.0` 时取 2.0~2.2，默认中值 2.1（DEC-019 A-6）。
+   */
   readonly k: number
   /** 幂曲线指数 n（表 A.1.1） */
   readonly n: number
