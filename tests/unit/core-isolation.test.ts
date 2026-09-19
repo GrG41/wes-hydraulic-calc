@@ -90,11 +90,17 @@ describe('src/core 隔离性', () => {
     expect(violations).toEqual([])
   })
 
-  it('阶段 0 期间 core 不得包含任何公式实现', () => {
-    // 阶段 2 起本断言应删除。当前用于防止越阶段编码。
-    const implemented = files.filter(
-      (file) => !file.endsWith('index.ts') && !file.endsWith('.d.ts'),
-    )
-    expect(implemented).toEqual([])
+  it('阶段 1 期间 core 只允许类型定义，不得包含公式实现', () => {
+    // 阶段 1 允许纯类型文件（types.ts 等）；阶段 2 开始实现公式时本断言应删除。
+    const allowed = ['index.ts', 'types.ts']
+    const unexpected = files
+      .map((file) => file.slice(CORE_DIR.length + 1))
+      .filter((rel) => !allowed.includes(rel) && !rel.endsWith('.d.ts'))
+    expect(unexpected).toEqual([])
+  })
+
+  it('阶段 1 交付物 types.ts 应存在', () => {
+    const rel = files.map((file) => file.slice(CORE_DIR.length + 1))
+    expect(rel).toContain('types.ts')
   })
 })
