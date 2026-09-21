@@ -90,17 +90,15 @@ describe('src/core 隔离性', () => {
     expect(violations).toEqual([])
   })
 
-  it('阶段 1 期间 core 只允许类型定义，不得包含公式实现', () => {
-    // 阶段 1 允许纯类型文件（types.ts 等）；阶段 2 开始实现公式时本断言应删除。
-    const allowed = ['index.ts', 'types.ts']
-    const unexpected = files
-      .map((file) => file.slice(CORE_DIR.length + 1))
-      .filter((rel) => !allowed.includes(rel) && !rel.endsWith('.d.ts'))
-    expect(unexpected).toEqual([])
+  it('阶段 2 起 core 允许实现文件，隔离性与浏览器 API 检查仍然生效', () => {
+    // 阶段 1 的"只允许类型定义"限制已随阶段 2 开始解除；
+    // 本文件前述两项检查（禁止跨层 import、禁止浏览器 API）继续强制执行。
+    expect(files.length).toBeGreaterThan(0)
   })
 
-  it('阶段 1 交付物 types.ts 应存在', () => {
+  it('阶段 2 交付物应存在：constants.ts 与 formulas/', () => {
     const rel = files.map((file) => file.slice(CORE_DIR.length + 1))
-    expect(rel).toContain('types.ts')
+    expect(rel).toContain('constants.ts')
+    expect(rel.some((r) => r.startsWith('formulas/'))).toBe(true)
   })
 })
