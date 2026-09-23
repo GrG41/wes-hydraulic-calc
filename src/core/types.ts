@@ -145,8 +145,21 @@ export interface UpstreamSection {
 export type DesignHeadSpec =
   /** 直接给 H_d，m */
   | { readonly kind: 'direct'; readonly value: number }
-  /** 由校核流量下的堰上水头 H_max 按高/低堰规则推求，m */
-  | { readonly kind: 'from-max-head'; readonly maxHead: number }
+  /**
+   * 由校核流量下的堰上水头 H_max 按高/低堰规则推求（标准 A.1.1，印张页 41）：
+   * 高堰（P₁ ≥ 1.33H_d）取 `H_d = (0.75~0.95)·H_max`；
+   * 低堰（P₁ < 1.33H_d）取 `H_d = (0.65~0.85)·H_max`。
+   *
+   * 标准只给**区间**，区间内系数属工程判断，由使用者给定；未给时取区间中值 0.85 / 0.75。
+   */
+  | {
+      readonly kind: 'from-max-head'
+      readonly maxHead: number
+      /** 高堰时 (0.75~0.95) 内的系数，默认 0.85 */
+      readonly highWeirFactor?: number
+      /** 低堰时 (0.65~0.85) 内的系数，默认 0.75 */
+      readonly lowWeirFactor?: number
+    }
 
 /**
  * 淹没系数 σs 的给定方式（DEC-022 路径 A）。
