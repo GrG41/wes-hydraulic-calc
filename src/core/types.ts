@@ -208,6 +208,17 @@ export interface ChuteConfig {
   readonly stationStep: number
   /** 若给定具体桩号序列则优先使用；否则按 stationStep 等间距生成 */
   readonly explicitStations?: readonly number[]
+  /**
+   * 起点桩号处的槽底高程，m。
+   * 槽底高程沿程下降 `Δs · i`（标准 A.3.1：i = sinθ）；缓流分支据此把下游水位换算为水深。
+   */
+  readonly startBedElevation?: number
+  /**
+   * 泄槽起始断面水深，m。
+   * 工程师确认起始水深"由上游堰面曲线推求"（Q21-2 = B），但未指定推求方法；
+   * **推荐由使用者按体型设计给出**。缺省时上层按该断面临界水深取值，并给出 `out-of-range` 提示。
+   */
+  readonly entranceDepth?: number
 }
 
 /** 水面线上下游边界（工程师确认 Q21，DEC-017）。 */

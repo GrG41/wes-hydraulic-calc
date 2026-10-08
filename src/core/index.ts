@@ -1,22 +1,97 @@
 /**
- * src/core —— 纯计算层入口。
+ * src/core 公共入口。
  *
- * 阶段 0 时本文件为占位，**不包含任何计算逻辑**。
- *
- * 硬性约束（见 AGENTS.md 与 tsconfig.core.json）：
- *   · 零 UI 依赖、零浏览器 API 依赖，可在 Node 环境直接运行测试；
- *   · 每条公式实现必须标注来源（标准编号 + 附录条款号 + 印张页）；
- *   · 中间计算禁止提前舍入，格式化只允许出现在展示层。
- *
- * 计划结构（阶段 2 建立，此处仅作规划，尚未创建）：
- *   formulas/discharge.ts     泄流能力      SL 253-2018 附录 A.2.1
- *   formulas/coefficient.ts   流量系数 m、侧收缩 ε、淹没系数 σs
- *   formulas/weirProfile.ts   WES 堰面曲线  SL 253-2018 附录 A.1
- *   formulas/waterProfile.ts  泄槽水面线    SL 253-2018 附录 A.3
- *   solver/                   迭代求解器（行进流速水头、水面线分段）
- *   validation/               输入校验与适用范围检查
- *   constants.ts              物理常数与已确认系数（含来源注释）
- *   types.ts                  输入 / 输出类型定义
+ * 上层（UI / 导出 / 测试）**只应通过本文件**使用核心层；
+ * 内部各模块的相对路径不属公共接口，可自由重构。
  */
 
-export {}
+// ── 类型 ────────────────────────────────────────────────────────
+export type {
+  AbutmentShape,
+  CalcResult,
+  CalculationInput,
+  ChuteConfig,
+  CrestCurveType,
+  DesignHeadSpec,
+  Diagnostic,
+  DiagnosticLevel,
+  DischargeIteration,
+  DischargeResult,
+  FlowRegime,
+  OperationCase,
+  PierArrangement,
+  PierHeadShape,
+  SolverOptions,
+  SubmergenceSpec,
+  UpstreamSection,
+  UpstreamSlope,
+  WaterProfileBoundary,
+  WeirGeometry,
+} from './types'
+
+// ── 常数 ────────────────────────────────────────────────────────
+export {
+  CHUTE_DEFAULT_STATION_STEP,
+  GRAVITY,
+  HEAD_OVER_SINGLE_WIDTH_LIMIT,
+  POWER_CURVE_K_LOW_WEIR_DEFAULT,
+  POWER_CURVE_K_LOW_WEIR_MAX,
+  POWER_CURVE_K_LOW_WEIR_MIN,
+  SOLVER_DEFAULTS,
+  UPSTREAM_SECTION_DISTANCE_RATIO,
+  VELOCITY_DISTRIBUTION_COEFFICIENT,
+} from './constants'
+
+// ── 统一入口 ────────────────────────────────────────────────────
+export { calculate, dischargeCurve } from './calculate'
+export type { CalculationOutput } from './calculate'
+
+// ── 校验 ────────────────────────────────────────────────────────
+export { checkApplicability, preflight, validateInput } from './validation/input'
+export type { PreflightResult } from './validation/input'
+
+// ── 泄流能力 ────────────────────────────────────────────────────
+export { resolveDesignHead, solveDischarge } from './formulas/discharge'
+
+// ── 系数 ────────────────────────────────────────────────────────
+export {
+  abutmentShapeFactorZeta0,
+  contractionCoefficient,
+  dischargeCoefficientM,
+  pierShapeFactorZetaK,
+  upstreamSlopeFactorC,
+} from './formulas/coefficient'
+export type { LookupOutcome } from './formulas/coefficient'
+
+// ── 堰面曲线 ────────────────────────────────────────────────────
+export {
+  buildWeirProfile,
+  powerCurveTangentX,
+  powerCurveX,
+  powerCurveY,
+  resolvePowerCurve,
+  tableA11Params,
+} from './formulas/weirProfile'
+export type {
+  PowerCurve,
+  PowerCurveGeometry,
+  TableA11Row,
+  WeirProfileGeometryResult,
+  WeirProfileSpec,
+} from './formulas/weirProfile'
+
+// ── 水面线 ──────────────────────────────────────────────────────
+export {
+  criticalDepth,
+  criticalSlope,
+  frictionSlope,
+  sectionProperties,
+  solveAdjacentDepth,
+  solveWaterProfile,
+} from './formulas/waterProfile'
+export type {
+  SectionProperties,
+  WaterProfileGeometryResult,
+  WaterProfileSpec,
+  WaterProfileStationResult,
+} from './formulas/waterProfile'

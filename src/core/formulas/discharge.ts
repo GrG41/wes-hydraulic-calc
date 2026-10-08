@@ -62,7 +62,7 @@ interface DesignHeadOutcome {
  * 标准只给**区间**，故区间内系数由使用者给定（默认取区间中值 0.85 / 0.75），
  * 属工程判断（归纳取向 P3）。
  */
-function resolveDesignHead(input: CalculationInput): DesignHeadOutcome {
+export function resolveDesignHead(input: CalculationInput): DesignHeadOutcome {
   const spec = input.designHead
   const p1 = input.weir.upstreamHeightP1
 
