@@ -25,7 +25,8 @@ Service Worker 在安装时把应用外壳**一次性整体预缓存**，之后�
 
 图表（ECharts，572 kB）与导出（SheetJS，291 kB）采用**按需加载**以缩短首屏时间，
 但它们**仍然全部进入预缓存**——离线可用的要求是「断网后**全部功能**可用」，
-而不是「断网后只能看首屏」。首屏 279 kB 与预缓存总量 1127 kB 是两回事。
+而不是「断网后只能看首屏」。首屏体积与预缓存总量是两回事（现取值见构建产物 `dist/sw.js`
+的预缓存清单，本文不手抄——手抄的会过期）。
 
 ## 2. 验收检查
 
@@ -35,20 +36,30 @@ Service Worker 在安装时把应用外壳**一次性整体预缓存**，之后�
 pnpm verify          # = pnpm build && node scripts/verify-pwa.mjs
 ```
 
-`scripts/verify-pwa.mjs` 对 `dist/` 做 8 项断言，退出码非 0 即失败：
+`scripts/verify-pwa.mjs` 对 `dist/` 逐项断言，退出码非 0 即失败。
+**下表「结果」列是某一次运行的记录**（项数与资源数随构建变化，现取值请直接跑命令）：
 
-| # | 检查项 | 结果 |
-|---|---|---|
-| 1 | 预缓存清单**无重复条目** | ✅ 11 条，无重复 |
-| 2 | 清单中每个 URL 在 `dist/` 下**确实存在** | ✅ |
-| 3 | `dist/` 下所有可缓存资源**全部进入预缓存** | ✅ 11/11 |
-| 4 | manifest 必填项齐全（含 192/512 图标与 maskable） | ✅ |
-| 5 | 入口 HTML 已注入 SW 注册脚本 | ✅ |
-| 6 | 入口 HTML **未引用任何外部资源** | ✅ |
-| 7 | 产物中**无取数型外部调用**（fetch / XHR / WebSocket / sendBeacon） | ✅ |
-| 8 | 产物中出现的域名清单（供人工复核） | ✅ 全部为 XML 命名空间与错误信息链接 |
+| # | 检查项 |
+|---|---|
+| 1 | 预缓存清单**无重复条目** |
+| 2 | 清单中每个 URL 在 `dist/` 下**确实存在** |
+| 3 | `dist/` 下所有可缓存资源**全部进入预缓存** |
+| 4 | manifest 必填项齐全（含 192/512 图标与 maskable） |
+| 5 | 入口 HTML 已注入 SW 注册脚本 |
+| 6 | 入口 HTML **未引用任何外部资源** |
+| 7 | **基路径自洽**：index.html 资源前缀 = manifest.start_url = manifest.scope |
+| 8 | 入口 HTML 已声明 `<meta name="color-scheme">` 且为暗色 |
+| 9 | 产物 CSS 声明的 `color-scheme` 含 dark |
+| 10 | manifest 的 `theme_color` / `background_color` 与页面底色（`--canvas`）一致 |
+| 11 | 产物中**无取数型外部调用**（fetch / XHR / WebSocket / sendBeacon） |
+| 12 | 产物中出现的域名清单（供人工复核） |
 
-> 第 7 项与第 8 项的区分很重要：构建产物里**必然**存在形如 URL 的字符串
+> 第 7 项是**子路径部署**的白屏陷阱：产物写死 `/assets/…` 而站点在 `/<repo>/` 下时，
+> 浏览器去域名根取资源、整页白屏——而第 2、3 项都是绿的（它们验的是相对路径）。
+> 第 8–10 项是**主题自述**：页面既然是固定暗色，就必须向浏览器声明；
+> 声明缺了会被再自动暗化一遍（二次暗色），manifest 两色与页面底色不一致则安装后启动闪色。
+>
+> 第 11 项与第 12 项的区分很重要：构建产物里**必然**存在形如 URL 的字符串
 > （OOXML 命名空间 `schemas.openxmlformats.org`、React 错误信息链接 `react.dev`），
 > 但它们**永不被解引用**。验收判据是「网络 API 是否紧邻外部 URL 字面量」，
 > 而不是「是否出现 URL 字符串」——后者会产生大量误报。
@@ -56,7 +67,7 @@ pnpm verify          # = pnpm build && node scripts/verify-pwa.mjs
 **本次静态验收曾真实抓出一个缺陷**：`vite-plugin-pwa` 会自动把 `manifest.icons` 与
 `manifest.webmanifest` 加入预缓存，而 `globPatterns` 又会从 `dist/` 匹配一遍，
 导致清单中出现**重复条目**（pwa-192×2、pwa-512×2、manifest.webmanifest×2）。
-已用 `globIgnores` 排除，现为 11 条无重复。
+已用 `globIgnores` 排除。
 
 ### 2.2 运行时可达性
 
@@ -70,16 +81,19 @@ pnpm verify          # = pnpm build && node scripts/verify-pwa.mjs
 > ⚠️ 注意：`vite preview` **绑定 IPv6**，须用 `http://localhost:4173` 或 `[::1]` 访问；
 > 用 `127.0.0.1` 会连不上（返回 000）。
 
-### 2.3 尚未完成的验收项（须在阶段 6 用真实浏览器完成）
+### 2.3 阶段 6 的浏览器验收（**已完成**，见 ACCEPTANCE.md）
 
-以下**无法由静态检查覆盖**，本阶段未做，如实列出：
+下表是阶段 5 结束时"尚需真实浏览器"的项。**阶段 6 已用 CDP 驱动的真实 Chromium
+全部跑通**（含断网重载、断网完成计算），结果记录在
+[`ACCEPTANCE.md`](ACCEPTANCE.md) §2.4（9 项）与 [`DEPLOYMENT.md`](DEPLOYMENT.md)
+（线上站点 9 项）。其中两项仍**未执行**，如实留着：
 
 | 项 | 状态 |
 |---|---|
-| 断网后重新加载页面仍可用 | ⏳ 需浏览器 |
-| Service Worker 实际激活并接管（`navigator.serviceWorker.ready`） | ⏳ 需浏览器 |
-| 应用安装到桌面/主屏（`beforeinstallprompt` / iOS「添加到主屏幕」） | ⏳ 需浏览器 |
-| 跨浏览器（Chrome / Edge / Firefox / Safari）行为一致性 | ⏳ 阶段 6（DEC-024 验收范围） |
+| 断网后重新加载页面仍可用 | ✅ 已在阶段 6 验证 |
+| Service Worker 实际激活并接管（`navigator.serviceWorker.ready`） | ✅ 已在阶段 6 验证（判据等 `activated` **终态**，不量瞬间） |
+| 应用安装到桌面/主屏（`beforeinstallprompt` / iOS「添加到主屏幕」） | ❌ **未执行** |
+| 跨浏览器（Chrome / Edge / Firefox / Safari）行为一致性 | ⚠️ 仅 **Chromium 内核**；Firefox / Safari 未执行 |
 | iOS Safari 的 SW 与存储配额行为 | ⏳ 阶段 6 |
 
 ## 3. 已知限制与风险

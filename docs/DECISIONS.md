@@ -600,6 +600,36 @@ iOS Safari 的 Service Worker 与存储配额行为与桌面端存在差异，
 
 ---
 
+### DEC-025　界面固定暗色，并向浏览器显式声明配色
+- **日期**：2026-10-08
+- **来源**：开发方 2026-10-08 的界面指示（工程师未提出相反偏好）。
+- **性质**：界面观感决策。**不影响**任何计算、取值、精度与验收口径。
+
+| 项 | 决定 |
+|---|---|
+| 主题 | **固定暗色**：不跟随 `prefers-color-scheme`，系统为浅色时也是同一套观感（同一份计算书在两种系统设置下截出来的图一致） |
+| 声明 | `index.html` 写 `<meta name="color-scheme" content="dark">`；`src/ui/app.css` 写 `color-scheme: dark;` 与 `color-scheme: only dark;` |
+| manifest | `theme_color` 与 `background_color` 取页面底色 `#11161c`（留浅色会在安装到主屏后启动时闪一下） |
+| 图表 | ECharts 的坐标轴、标题、图例、提示框颜色**从 CSS 变量现取**（`src/ui/charts/options.ts`），不另写一份调色板 |
+| 验收摘要页 | 与计算程序同一套观感与同一份声明（由 `scripts/gen-verification-page.mjs` 生成） |
+
+**为什么"声明"本身是要紧的**：浏览器（Chrome 的 Auto Dark Mode、部分安卓浏览器的
+「简化暗色」）只对**未声明配色**的页面做算法暗化。本页本来就是暗的——若只用颜色把它画暗、
+不同时声明，浏览器仍可能再暗化一遍（**二次暗色**），颜色与对比度双双失真。
+
+**`only dark` 那一行的由来**：按 CSS 规范，`only` 才是"不允许使用其它配色、也不做变换"的
+更强写法；`only light` 是给"浅色即设计"的页面的关闭开关，暗色页面的对应物是 `only dark`。
+而 `<meta>` 的 `color-scheme` **不接受** `only dark`，故 meta 只写 `dark`、把 `only` 放在 CSS 里，
+并且**基线行在前**（不认 `only` 的浏览器丢掉第二行、保留第一行）。
+规范层面的讨论见 w3c/csswg-drafts#13486。
+
+**判据（已固化，会翻脸）**：`scripts/verify-pwa.mjs` 第 8–10 项——
+① HTML 必须声明 `dark`；② 产物 CSS 的 `color-scheme` 必须含 dark；
+③ manifest 两色必须等于产物 CSS 里的 `--canvas`。
+已用反例撞过：把 meta 改回 `light`、把 manifest 底色改回白色，各自都会失败。
+
+---
+
 ## 待决事项（未确认，禁止据此实现）
 
 | 编号 | 事项 | 阻塞对象 | 出处 |
