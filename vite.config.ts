@@ -14,21 +14,29 @@ import { VitePWA } from 'vite-plugin-pwa'
 const rawBase = process.env.VITE_BASE ?? '/'
 const base = `/${rawBase.replace(/^\/+|\/+$/g, '')}/`.replace(/^\/\/$/, '/')
 
+/**
+ * 开发/预览服务器允许的主机名（Vite 的 DNS 重绑定防护）。
+ *
+ * 由环境变量 `VITE_DEV_HOSTS` 提供，逗号分隔，例如
+ * `VITE_DEV_HOSTS=dev.lan,workstation.lan pnpm dev`。默认空 = 只有 IP 与 localhost 可用。
+ *
+ * 需要放行整段子域时可写成前导点的形式（例如 `'.lan'`）——
+ * 那等于信任该后缀下的**任意**主机名，非必要不要用。
+ *
+ * 这里**不写死任何真实主机名**：主机名属于部署环境，不属于仓库。
+ */
+const devHosts = (process.env.VITE_DEV_HOSTS ?? '')
+  .split(',')
+  .map((h) => h.trim())
+  .filter(Boolean)
+
 export default defineConfig({
   base,
-  /**
-   * Vite 的 DNS 重绑定防护：请求的 `Host` 头不在允许列表内即直接拒绝
-   * （报错 `This host ... is not allowed`）。**IP 地址默认放行，主机名必须显式列出。**
-   *
-   * 局域网内以主机名访问开发/预览服务器时，把主机名加到这里。
-   * 需要放行整段子域时可写成前导点的形式，例如 `'.lan'`——
-   * 但那等于信任 `.lan` 下的**任意**主机名，非必要不要用。
-   */
   server: {
-    allowedHosts: ['dev-host.local'],
+    allowedHosts: devHosts,
   },
   preview: {
-    allowedHosts: ['dev-host.local'],
+    allowedHosts: devHosts,
   },
   plugins: [
     react(),
