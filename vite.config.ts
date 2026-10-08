@@ -3,6 +3,20 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  /**
+   * Vite 的 DNS 重绑定防护：请求的 `Host` 头不在允许列表内即直接拒绝
+   * （报错 `This host ... is not allowed`）。**IP 地址默认放行，主机名必须显式列出。**
+   *
+   * 局域网内以主机名访问开发/预览服务器时，把主机名加到这里。
+   * 需要放行整段子域时可写成前导点的形式，例如 `'.lan'`——
+   * 但那等于信任 `.lan` 下的**任意**主机名，非必要不要用。
+   */
+  server: {
+    allowedHosts: ['dev-host.local'],
+  },
+  preview: {
+    allowedHosts: ['dev-host.local'],
+  },
   plugins: [
     react(),
     VitePWA({
