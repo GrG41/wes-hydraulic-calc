@@ -304,9 +304,17 @@ const page = `<!doctype html>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>验收摘要 · WES 型实用堰计算程序</title>
+<!-- 与计算程序同一套观感：**固定暗色**，并显式声明 color-scheme，
+     让浏览器不再对本页做自动/强制暗化（否则暗色页会被再暗化一遍）。 -->
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#11161c" />
 <style>
-  :root { color-scheme: light dark; --fg:#1a1a1a; --bg:#ffffff; --muted:#5b6470; --line:#dfe3e8; --accent:#1a5fb4; --warn-bg:#fff6e5; --warn-line:#e0a800; }
-  @media (prefers-color-scheme: dark) { :root { --fg:#e8eaed; --bg:#16181c; --muted:#9aa3af; --line:#2c313a; --accent:#7cb0ff; --warn-bg:#2a2416; --warn-line:#8a6d1f; } }
+  :root {
+    color-scheme: dark;
+    color-scheme: only dark; /* 支持的浏览器：明确不做任何配色变换；不支持则丢这一行 */
+    --fg:#e6ebf2; --bg:#11161c; --surface:#1a212b; --muted:#a7b4c4; --line:#303a46;
+    --accent:#7cb3ff; --warn-bg:#2e2617; --warn-line:#d9a441; --ok:#6ddc8a;
+  }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.7 system-ui,-apple-system,"Noto Sans CJK SC","Source Han Sans SC",sans-serif; }
   main { max-width: 900px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
@@ -314,7 +322,7 @@ const page = `<!doctype html>
   h2 { font-size: 1.15rem; margin: 2.25rem 0 .75rem; padding-bottom:.35rem; border-bottom:1px solid var(--line); }
   h3 { font-size: 1rem; margin: 1.5rem 0 .5rem; }
   a { color: var(--accent); }
-  code { background: color-mix(in srgb, var(--fg) 8%, transparent); padding:.1em .35em; border-radius:3px; font-size:.9em; }
+  code { background: color-mix(in srgb, var(--fg) 10%, transparent); padding:.1em .35em; border-radius:3px; font-size:.9em; }
   .lead { color: var(--muted); margin:.25rem 0 0; }
   .nav { display:flex; gap:1rem; flex-wrap:wrap; margin:1rem 0 0; font-size:.95rem; }
   .facts { display:grid; grid-template-columns: max-content 1fr; gap:.35rem 1rem; margin:0; }
@@ -322,12 +330,13 @@ const page = `<!doctype html>
   .facts dd { margin:0; overflow-wrap:anywhere; }
   .tbl { width:100%; border-collapse: collapse; margin:.75rem 0; font-size:.92rem; display:block; overflow-x:auto; }
   .tbl th, .tbl td { border:1px solid var(--line); padding:.45rem .6rem; text-align:left; vertical-align:top; }
-  .tbl th { background: color-mix(in srgb, var(--fg) 5%, transparent); font-weight:600; }
+  .tbl th { background: var(--surface); font-weight:600; }
+  .tbl tbody tr:nth-child(even) { background: color-mix(in srgb, var(--fg) 3%, transparent); }
   .callout { border-left:4px solid var(--warn-line); background:var(--warn-bg); padding:.9rem 1rem; margin:1rem 0; border-radius:0 4px 4px 0; }
   .callout p { margin:.4rem 0; }
   ol, ul { padding-left:1.5rem; }
   li { margin:.3rem 0; }
-  .ok { color:#18794e; font-weight:600; }
+  .ok { color:var(--ok); font-weight:600; }
   footer { margin-top:3rem; padding-top:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.88rem; }
 </style>
 </head>

@@ -167,7 +167,52 @@ if (absRefs.length === 0) {
   }
 }
 
-// ── 8. 运行时不联网：只对**真正的取数型调用**判失败 ───────────────
+// ── 8. 主题自述与实际一致（固定暗色）─────────────────────────────
+//
+// 界面是**固定暗色**，并且要向浏览器声明这件事——声明缺了，浏览器会把本页当作
+// "不支持暗色的页面"再自动暗化一遍（二次暗色）。
+// 这里钉三件事：① HTML 有声明；② 产物 CSS 里声明的是暗色而不是浅色；
+// ③ manifest 的两个色与页面底色一致（否则安装到主屏启动时会先闪另一种颜色）。
+const colorSchemeMeta = html.match(/<meta\s+name="color-scheme"\s+content="([^"]*)"\s*\/?>/)
+if (!colorSchemeMeta) {
+  fail('index.html 没有 <meta name="color-scheme">：未向浏览器声明配色，可能被自动暗化')
+} else if (!/\bdark\b/.test(colorSchemeMeta[1])) {
+  fail(`<meta name="color-scheme" content="${colorSchemeMeta[1]}"> 未声明 dark`)
+} else {
+  ok(`index.html 已声明 color-scheme: ${colorSchemeMeta[1]}`)
+}
+
+const cssFiles = walk(DIST).filter((f) => extname(f) === '.css')
+const cssText = cssFiles.map((f) => readFileSync(f, 'utf8')).join('\n')
+const schemeDecl = [...cssText.matchAll(/color-scheme:\s*([^;}]+)/g)].map((m) => m[1].trim())
+if (schemeDecl.length === 0) {
+  fail('产物 CSS 里没有 color-scheme 声明（与界面"固定暗色"的自述不符）')
+} else if (!schemeDecl.some((v) => /\bdark\b/.test(v))) {
+  fail(`产物 CSS 的 color-scheme 是 ${schemeDecl.join(' / ')}，没有 dark`)
+} else {
+  ok(`产物 CSS 声明 color-scheme: ${schemeDecl.join(' / ')}`)
+}
+
+const canvasMatch = cssText.match(/--canvas:\s*(#[0-9a-fA-F]{3,8})/)
+if (!canvasMatch) {
+  fail('产物 CSS 里找不到 --canvas，无法核对 manifest 配色是否与页面底色一致')
+} else {
+  const canvas = canvasMatch[1].toLowerCase()
+  const mfFile = join(DIST, 'manifest.webmanifest')
+  const mfJson = existsSync(mfFile) ? JSON.parse(readFileSync(mfFile, 'utf8')) : {}
+  const tc = String(mfJson.theme_color ?? '').toLowerCase()
+  const bc = String(mfJson.background_color ?? '').toLowerCase()
+  const bad = []
+  if (tc !== canvas) bad.push(`theme_color = ${mfJson.theme_color}（页面底色是 ${canvas}）`)
+  if (bc !== canvas) bad.push(`background_color = ${mfJson.background_color}（页面底色是 ${canvas}）`)
+  if (bad.length > 0) {
+    fail(`manifest 配色与页面底色不一致：${bad.join('；')}——安装到主屏后启动会闪色`)
+  } else {
+    ok(`manifest 配色与页面底色一致（${canvas}）`)
+  }
+}
+
+// ── 9. 运行时不联网：只对**真正的取数型调用**判失败 ───────────────
 //
 // 注意区分两类外部字符串（初版脚本曾把两者都判为失败，属误报）：
 //   · **XML 命名空间**（如 http://schemas.openxmlformats.org/...）—— 只是标识符，
