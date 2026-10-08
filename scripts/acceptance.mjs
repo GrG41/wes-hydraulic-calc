@@ -16,23 +16,23 @@
  * 零第三方依赖：仅用 Node 内置的 http / fs / child_process / fetch / WebSocket。
  *
  * 用法：
- *   pnpm build && node scripts/acceptance.mjs
- *   node scripts/acceptance.mjs --base=/wes-hydraulic-calc/     # 按子路径托管 dist/（模拟 GitHub Pages 项目站）
- *   node scripts/acceptance.mjs --url=https://example.com/app/  # 直接验**线上站点**（不起本地服务）
+ *   node scripts/acceptance.mjs                     # 验 GitHub Pages 上的站点（地址由 origin 推导）
+ *   node scripts/acceptance.mjs --url=<地址>         # 指定地址
+ *
+ * **本脚本不起任何本地服务、不开任何端口**：它验的是**已经发布出去的那一份**。
+ * 本地 `dist/` 的静态检查由 `scripts/verify-pwa.mjs` 负责（不需要服务器）。
+ * 发布与验收一律走 GitHub Pages，见 docs/DEPLOYMENT.md。
  *
  * 退出码：0 = 全部通过；1 = 有检查项失败；2 = **没能验到**（环境/目标不可达，不是通过）。
  */
 
-import { createServer } from 'node:http'
-import { readFile, mkdtemp } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { existsSync, statSync } from 'node:fs'
-import { extname, join, resolve, sep } from 'node:path'
+import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 
-const DIST = 'dist'
 const CDP_PORT = 9333
-const APP_PORT = 4174
 
 // ─────────────────────────────────────────────────────────────────
 //  命令行参数
@@ -49,72 +49,36 @@ function argValue(name) {
   return argv[i + 1]
 }
 
-/** 归一化基路径：始终形如 `/` 或 `/x/y/`。 */
-function normalizeBasePath(p) {
-  const s = String(p ?? '/').trim()
-  return `/${s.replace(/^\/+|\/+$/g, '')}/`.replace(/^\/\/$/, '/')
+/**
+ * 由 `origin` 远端推导站点地址：
+ * `git@github.com:owner/repo.git` → `https://owner.github.io/repo/`；
+ * 仓库名本身是 `owner.github.io` 时落在域名根。
+ */
+function pagesUrlFromRemote() {
+  let remote = ''
+  try {
+    remote = execFileSync('git', ['remote', 'get-url', 'origin'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+  } catch {
+    return null
+  }
+  const m = remote.match(/^(?:git@([^:]+):|https?:\/\/([^/]+)\/)(.+?)(?:\.git)?$/)
+  if (!m) return null
+  const host = m[1] ?? m[2]
+  const [owner, repo] = m[3].split('/')
+  if (!owner || !repo || host !== 'github.com') return null
+  const base = repo.toLowerCase() === `${owner.toLowerCase()}.github.io` ? '/' : `/${repo}/`
+  return `https://${owner.toLowerCase()}.github.io${base}`
 }
 
-const TARGET_URL = argValue('url')
-const BASE_PATH = normalizeBasePath(argValue('base') ?? process.env.APP_BASE ?? '/')
-
-const MIME = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.webmanifest': 'application/manifest+json; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.ico': 'image/x-icon',
-}
+const TARGET_URL = argValue('url') ?? pagesUrlFromRemote()
 
 const results = []
 const record = (name, ok, detail = '') => {
   results.push({ name, ok, detail })
   console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` —— ${detail}` : ''}`)
-}
-
-// ─────────────────────────────────────────────────────────────────
-//  静态服务器（按 `BASE_PATH` 托管，模拟部署基路径）
-// ─────────────────────────────────────────────────────────────────
-function startServer(basePath) {
-  const root = resolve(DIST)
-  const server = createServer(async (req, res) => {
-    try {
-      const url = new URL(req.url ?? '/', 'http://localhost')
-      const pathname = decodeURIComponent(url.pathname)
-      // 基路径之外一律 404：若产物仍引用根路径资源，这里会**当场暴露**，
-      // 而不是静默回退成 index.html 让应用白屏。
-      if (!pathname.startsWith(basePath)) {
-        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' })
-        res.end(`404：${pathname} 不在部署基路径 ${basePath} 下`)
-        return
-      }
-      let rel = pathname.slice(basePath.length)
-      if (rel === '' || rel.endsWith('/')) rel += 'index.html'
-      let file = resolve(root, rel)
-      if (!file.startsWith(root + sep)) {
-        res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' })
-        res.end('403')
-        return
-      }
-      // 单页应用：非文件请求回退到 index.html（与 SW 的 navigateFallback 一致）
-      if (!existsSync(file)) file = join(root, 'index.html')
-      const body = await readFile(file)
-      res.writeHead(200, {
-        'Content-Type': MIME[extname(file)] ?? 'application/octet-stream',
-        'Service-Worker-Allowed': basePath,
-        'Cache-Control': 'no-cache',
-      })
-      res.end(body)
-    } catch (e) {
-      res.writeHead(500).end(String(e))
-    }
-  })
-  return new Promise((resolve_) => {
-    server.listen(APP_PORT, '127.0.0.1', () => resolve_(server))
-  })
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -204,31 +168,27 @@ class Cdp {
 //  主流程
 // ─────────────────────────────────────────────────────────────────
 async function main() {
-  // 目标：要么是本地 dist/ 按基路径托管，要么是**线上站点**。
-  let server = null
-  let target
-  if (TARGET_URL !== undefined) {
-    if (!/^https?:\/\//.test(TARGET_URL)) {
-      console.error(`✗ --url 需要完整地址，收到：${TARGET_URL}`)
-      process.exit(2)
-    }
-    target = TARGET_URL.endsWith('/') ? TARGET_URL : `${TARGET_URL}/`
-    console.log(`\n目标（线上）： ${target}`)
-    const pre = await preflight(target)
-    if (!pre.ok) {
-      console.error(`✗ 目标不可达或返回异常：${pre.detail}`)
-      process.exit(2)
-    }
-    console.log(`线上预检： HTTP ${pre.status}，标题「${pre.title}」`)
-  } else {
-    if (!existsSync(join(DIST, 'index.html'))) {
-      console.error('✗ 未找到 dist/，请先执行 pnpm build')
-      process.exit(2)
-    }
-    server = await startServer(BASE_PATH)
-    target = `http://127.0.0.1:${APP_PORT}${BASE_PATH}`
-    console.log(`\n本地静态服务： ${target}（托管 ${DIST}/，基路径 ${BASE_PATH}）`)
+  // 目标只有一个：**已经发布出去的那一份**。本地不起服务、不开端口。
+  if (TARGET_URL === undefined) {
+    console.error(
+      '✗ 无法确定站点地址：既没有 --url，也没能从 origin 远端推导出 GitHub Pages 地址。\n' +
+        '  例：node scripts/acceptance.mjs --url=https://<owner>.github.io/<repo>/',
+    )
+    process.exit(2)
   }
+  if (!/^https?:\/\//.test(TARGET_URL)) {
+    console.error(`✗ --url 需要完整地址，收到：${TARGET_URL}`)
+    process.exit(2)
+  }
+  const target = TARGET_URL.endsWith('/') ? TARGET_URL : `${TARGET_URL}/`
+  console.log(`\n目标（已发布站点）： ${target}`)
+  const pre = await preflight(target)
+  if (!pre.ok) {
+    console.error(`✗ 目标不可达或返回异常：${pre.detail}`)
+    process.exit(2)
+  }
+  console.log(`预检： HTTP ${pre.status}，标题「${pre.title}」`)
+  await reportDeployedCommit(target)
   const base = target
 
   const profile = await mkdtemp(join(tmpdir(), 'wes-acceptance-'))
@@ -279,7 +239,6 @@ async function main() {
   if (!wsUrl) {
     console.error('✗ 无法连接 Chromium 的页面调试端点\n', chromeErr.slice(-800))
     chrome.kill()
-    server?.close()
     process.exit(2)
   }
 
@@ -383,7 +342,6 @@ async function main() {
     })
   } finally {
     chrome.kill()
-    server?.close()
   }
 
   const failed = results.filter((r) => !r.ok)
@@ -393,6 +351,41 @@ async function main() {
     process.exit(1)
   }
   console.log(`结果：全部通过（${results.length} 项）\n`)
+}
+
+/**
+ * 报告**站点上那一份产物**对应的提交，并与本地 HEAD 对照。
+ *
+ * 这是"我发的那一版到底上没上"的答案。只打印、不判失败：站点落后于本地是常态
+ * （改了还没发）。**但"不知道两者是否一致"才是问题**——所以每次验收都把它说出来。
+ * 提交号不手抄：从站点上的验收摘要页里读（那一页是构建时现取生成的）。
+ */
+async function reportDeployedCommit(target) {
+  try {
+    const res = await fetch(new URL('verification.html', target))
+    if (!res.ok) return
+    const html = await res.text()
+    const deployed = html.match(/<code>([0-9a-f]{7,40})<\/code>（完整/)?.[1] ?? null
+    if (!deployed) return
+    let local = null
+    try {
+      local = execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim()
+    } catch {
+      /* 不在 git 工作区里就不比 */
+    }
+    const note =
+      local === null
+        ? ''
+        : deployed.startsWith(local)
+          ? '（与本地 HEAD 相同）'
+          : `（本地 HEAD 是 ${local} —— 站点上不是本地这一版）`
+    console.log(`站点产物： 提交 ${deployed}${note}`)
+  } catch {
+    /* 取不到就不打印：这不是检查项 */
+  }
 }
 
 /**
