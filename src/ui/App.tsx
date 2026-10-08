@@ -167,6 +167,10 @@ export default function App() {
       <footer className="shell__footer">
         <OfflineStatus />
         <p>
+          <a href={`${import.meta.env.BASE_URL}verification.html`}>验收摘要</a>
+          ：这一版验过什么、哪些没有验、以及可以自己执行的复核步骤。
+        </p>
+        <p>
           计算全部在本地完成，不联网。公式与取值来源见 <code>docs/FORMULAS.md</code>，
           决策记录见 <code>docs/DECISIONS.md</code>。
         </p>

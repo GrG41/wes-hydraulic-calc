@@ -15,19 +15,48 @@
  *
  * 零第三方依赖：仅用 Node 内置的 http / fs / child_process / fetch / WebSocket。
  *
- * 用法：pnpm build && node scripts/acceptance.mjs
+ * 用法：
+ *   pnpm build && node scripts/acceptance.mjs
+ *   node scripts/acceptance.mjs --base=/wes-hydraulic-calc/     # 按子路径托管 dist/（模拟 GitHub Pages 项目站）
+ *   node scripts/acceptance.mjs --url=https://example.com/app/  # 直接验**线上站点**（不起本地服务）
+ *
+ * 退出码：0 = 全部通过；1 = 有检查项失败；2 = **没能验到**（环境/目标不可达，不是通过）。
  */
 
 import { createServer } from 'node:http'
 import { readFile, mkdtemp } from 'node:fs/promises'
 import { existsSync, statSync } from 'node:fs'
-import { extname, join, normalize } from 'node:path'
+import { extname, join, resolve, sep } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawn } from 'node:child_process'
 
 const DIST = 'dist'
 const CDP_PORT = 9333
 const APP_PORT = 4174
+
+// ─────────────────────────────────────────────────────────────────
+//  命令行参数
+// ─────────────────────────────────────────────────────────────────
+const argv = process.argv.slice(2)
+
+/** 取 `--名字=值` / `--名字 值` 形式的参数；未给出返回 undefined。 */
+function argValue(name) {
+  const hit = argv.find((a) => a === `--${name}` || a.startsWith(`--${name}=`))
+  if (hit === undefined) return undefined
+  const eq = hit.indexOf('=')
+  if (eq >= 0) return hit.slice(eq + 1)
+  const i = argv.indexOf(hit)
+  return argv[i + 1]
+}
+
+/** 归一化基路径：始终形如 `/` 或 `/x/y/`。 */
+function normalizeBasePath(p) {
+  const s = String(p ?? '/').trim()
+  return `/${s.replace(/^\/+|\/+$/g, '')}/`.replace(/^\/\/$/, '/')
+}
+
+const TARGET_URL = argValue('url')
+const BASE_PATH = normalizeBasePath(argValue('base') ?? process.env.APP_BASE ?? '/')
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -47,21 +76,35 @@ const record = (name, ok, detail = '') => {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  静态服务器
+//  静态服务器（按 `BASE_PATH` 托管，模拟部署基路径）
 // ─────────────────────────────────────────────────────────────────
-function startServer() {
+function startServer(basePath) {
+  const root = resolve(DIST)
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url ?? '/', 'http://localhost')
-      let rel = normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, '')
-      if (rel === '/' || rel === '\\') rel = '/index.html'
-      let file = join(DIST, rel)
+      const pathname = decodeURIComponent(url.pathname)
+      // 基路径之外一律 404：若产物仍引用根路径资源，这里会**当场暴露**，
+      // 而不是静默回退成 index.html 让应用白屏。
+      if (!pathname.startsWith(basePath)) {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' })
+        res.end(`404：${pathname} 不在部署基路径 ${basePath} 下`)
+        return
+      }
+      let rel = pathname.slice(basePath.length)
+      if (rel === '' || rel.endsWith('/')) rel += 'index.html'
+      let file = resolve(root, rel)
+      if (!file.startsWith(root + sep)) {
+        res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' })
+        res.end('403')
+        return
+      }
       // 单页应用：非文件请求回退到 index.html（与 SW 的 navigateFallback 一致）
-      if (!existsSync(file)) file = join(DIST, 'index.html')
+      if (!existsSync(file)) file = join(root, 'index.html')
       const body = await readFile(file)
       res.writeHead(200, {
         'Content-Type': MIME[extname(file)] ?? 'application/octet-stream',
-        'Service-Worker-Allowed': '/',
+        'Service-Worker-Allowed': basePath,
         'Cache-Control': 'no-cache',
       })
       res.end(body)
@@ -69,8 +112,8 @@ function startServer() {
       res.writeHead(500).end(String(e))
     }
   })
-  return new Promise((resolve) => {
-    server.listen(APP_PORT, '127.0.0.1', () => resolve(server))
+  return new Promise((resolve_) => {
+    server.listen(APP_PORT, '127.0.0.1', () => resolve_(server))
   })
 }
 
@@ -161,14 +204,32 @@ class Cdp {
 //  主流程
 // ─────────────────────────────────────────────────────────────────
 async function main() {
-  if (!existsSync(join(DIST, 'index.html'))) {
-    console.error('✗ 未找到 dist/，请先执行 pnpm build')
-    process.exit(1)
+  // 目标：要么是本地 dist/ 按基路径托管，要么是**线上站点**。
+  let server = null
+  let target
+  if (TARGET_URL !== undefined) {
+    if (!/^https?:\/\//.test(TARGET_URL)) {
+      console.error(`✗ --url 需要完整地址，收到：${TARGET_URL}`)
+      process.exit(2)
+    }
+    target = TARGET_URL.endsWith('/') ? TARGET_URL : `${TARGET_URL}/`
+    console.log(`\n目标（线上）： ${target}`)
+    const pre = await preflight(target)
+    if (!pre.ok) {
+      console.error(`✗ 目标不可达或返回异常：${pre.detail}`)
+      process.exit(2)
+    }
+    console.log(`线上预检： HTTP ${pre.status}，标题「${pre.title}」`)
+  } else {
+    if (!existsSync(join(DIST, 'index.html'))) {
+      console.error('✗ 未找到 dist/，请先执行 pnpm build')
+      process.exit(2)
+    }
+    server = await startServer(BASE_PATH)
+    target = `http://127.0.0.1:${APP_PORT}${BASE_PATH}`
+    console.log(`\n本地静态服务： ${target}（托管 ${DIST}/，基路径 ${BASE_PATH}）`)
   }
-
-  const server = await startServer()
-  const base = `http://127.0.0.1:${APP_PORT}/`
-  console.log(`\n静态服务： ${base}`)
+  const base = target
 
   const profile = await mkdtemp(join(tmpdir(), 'wes-acceptance-'))
   const chrome = spawn(
@@ -218,8 +279,8 @@ async function main() {
   if (!wsUrl) {
     console.error('✗ 无法连接 Chromium 的页面调试端点\n', chromeErr.slice(-800))
     chrome.kill()
-    server.close()
-    process.exit(1)
+    server?.close()
+    process.exit(2)
   }
 
   const cdp = await Cdp.connect(wsUrl)
@@ -311,7 +372,7 @@ async function main() {
     })
   } finally {
     chrome.kill()
-    server.close()
+    server?.close()
   }
 
   const failed = results.filter((r) => !r.ok)
@@ -321,6 +382,28 @@ async function main() {
     process.exit(1)
   }
   console.log(`结果：全部通过（${results.length} 项）\n`)
+}
+
+/**
+ * 线上预检：目标可达、返回 200、且确实是本应用。
+ *
+ * 与浏览器内的检查**不重复**：它回答的是「我连上的是不是这台机器」，
+ * 好在 `--url` 打错、Pages 尚未构建完成（404）、或代理插了一脚时给出明确诊断，
+ * 而不是等到浏览器里报一堆看不懂的错。
+ */
+async function preflight(url) {
+  try {
+    const res = await fetch(url, { redirect: 'follow' })
+    if (!res.ok) return { ok: false, detail: `HTTP ${res.status} ${res.statusText}` }
+    const html = await res.text()
+    const title = html.match(/<title>([^<]*)<\/title>/)?.[1]?.trim() ?? ''
+    if (!title.includes('WES')) {
+      return { ok: false, detail: `返回的 HTML 不含预期标题（实际：「${title.slice(0, 40)}」）` }
+    }
+    return { ok: true, status: res.status, title: title.slice(0, 40) }
+  } catch (e) {
+    return { ok: false, detail: String(e?.message ?? e) }
+  }
 }
 
 /** 在页面内点击「计算」并读取主结果。 */
@@ -376,7 +459,15 @@ if (!CHROMIUM) {
     '✗ 未找到 Chromium。请把它装进 PATH，或用 CHROMIUM_BIN 指定可执行文件路径。\n' +
       '  例：nix shell nixpkgs#chromium --command node scripts/acceptance.mjs',
   )
-  process.exit(1)
+  process.exit(2)
 }
 
-await main()
+// 顶层兜底：脚本自己崩了要报「没能验到（退出码 2）」，而不是让 Node 抛一串堆栈
+// 让人误以为「检查失败了」。**「没能验到」与「验了不通过」是两件事。**
+try {
+  await main()
+} catch (e) {
+  console.error(`\n✗ 验收未能完成（不属于检查项失败）：${e?.message ?? e}`)
+  console.error('  退出码 2 = 没能验到，不是通过。')
+  process.exit(2)
+}
