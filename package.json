@@ -12,7 +12,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify:pwa": "node scripts/verify-pwa.mjs",
-    "verify": "pnpm run build && node scripts/verify-pwa.mjs"
+    "verify": "pnpm run build && node scripts/verify-pwa.mjs",
+    "acceptance": "node scripts/acceptance.mjs",
+    "verify:all": "pnpm run build && node scripts/verify-pwa.mjs && node scripts/acceptance.mjs"
   },
   "dependencies": {
     "echarts": "^6.1.0",
