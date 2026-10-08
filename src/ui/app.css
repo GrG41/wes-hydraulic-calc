@@ -400,3 +400,86 @@ code {
 .btn:disabled:hover {
   border-color: var(--line);
 }
+
+/* ── 结果过期提示 ───────────────────────────────────────── */
+.stale-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.9rem;
+  padding: 0.7rem 1rem;
+  background: var(--err-bg);
+  border: 1px solid var(--err-line);
+  border-radius: 5px;
+  font-size: 0.86rem;
+  color: var(--ink);
+}
+
+.result-veil {
+  opacity: 0.55;
+  filter: grayscale(0.35);
+}
+
+.btn--alert {
+  background: var(--err-line);
+  border-color: var(--err-line);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+/* ── 算例管理 ───────────────────────────────────────────── */
+.cases {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.5rem 1.2rem 1.2rem;
+  margin-top: 1rem;
+}
+
+.cases__save {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.cases__save .field__input {
+  flex: 1 1 14rem;
+}
+
+.cases__ops {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.btn--mini {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.76rem;
+}
+
+.cases__io {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.9rem;
+}
+
+.cases__warn {
+  margin: 0.9rem 0 0;
+  padding: 0.6rem 0.85rem;
+  background: var(--warn-bg);
+  border-left: 3px solid var(--warn-line);
+  border-radius: 3px;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
