@@ -374,3 +374,29 @@ code {
   padding: 0.1em 0.35em;
   font-size: 0.88em;
 }
+
+/* ── 图表 ───────────────────────────────────────────────── */
+.charts {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1rem 1.2rem 1.4rem;
+  margin-top: 1.5rem;
+}
+
+.chart-card {
+  margin-top: 0.6rem;
+}
+
+.chart {
+  width: 100%;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn:disabled:hover {
+  border-color: var(--line);
+}

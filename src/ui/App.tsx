@@ -1,16 +1,24 @@
 /**
- * 应用外壳 —— 参数输入 + 一键试算 + 计算过程与结果展示。
+ * 应用外壳 —— 参数输入 + 一键试算 + 计算过程与结果展示 + 曲线绘图 + 计算书导出。
  *
  * 计算全部在客户端完成，**运行时不访问任何网络**（AGENTS.md §2.7）。
- * 计算书导出、算例保存/加载、曲线绘图为后续增量。
+ * 算例保存/加载为后续增量。
  */
 
-import { useCallback, useState } from 'react'
+import { lazy, Suspense, useCallback, useState } from 'react'
 import { calculate } from '../core'
 import type { CalcResult, CalculationOutput } from '../core'
 import { useParameterStore } from '../store/parameterStore'
 import ParameterForm from './ParameterForm'
 import ResultPanel from './ResultPanel'
+
+/**
+ * 图表与计算书导出按需加载。
+ *
+ * ECharts 与 SheetJS 体积较大（合计约 900 kB 未压缩），不必进入首屏包；
+ * 二者仍会被 PWA 预缓存，故**断网后功能依然完整**（AGENTS.md §2.7）。
+ */
+const ChartsPanel = lazy(() => import('./ChartsPanel'))
 
 export default function App() {
   const input = useParameterStore((s) => s.input)
@@ -27,12 +35,55 @@ export default function App() {
       <header className="shell__header">
         <p className="shell__eyebrow">SL 253-2018《溢洪道设计规范》</p>
         <h1 className="shell__title">WES 型实用堰泄流能力与堰流水面线计算程序</h1>
-        <p className="shell__badge">阶段 4 · 参数输入与计算过程展示</p>
+        <p className="shell__badge">阶段 4 · 参数输入 / 计算过程 / 曲线 / 计算书导出</p>
       </header>
 
       <div className="toolbar">
         <button type="button" className="btn btn--primary" onClick={run}>
           计算
+        </button>
+        <button
+          type="button"
+          className="btn"
+          disabled={result === null}
+          onClick={() => {
+            if (result === null) return
+            const snapshot = result
+            void import('../export/excel').then(({ exportCalculationExcel }) =>
+              exportCalculationExcel(input, snapshot),
+            )
+          }}
+        >
+          导出计算书（Excel）
+        </button>
+        <button
+          type="button"
+          className="btn"
+          disabled={result === null}
+          onClick={() => {
+            if (result === null || !result.ok) return
+            const output = result.value
+            void import('../export/excel').then(({ exportCsv }) =>
+              exportCsv(
+                [
+                  ['桩号 (m)', '水深 (m)', '流速 (m/s)', '水力半径 (m)', 'Fr', '流态'],
+                  ...output.waterProfile.branches.flatMap((b) =>
+                    b.stations.map((s) => [
+                      s.station,
+                      s.depth,
+                      s.velocity,
+                      s.hydraulicRadius,
+                      s.froude,
+                      s.regime,
+                    ]),
+                  ),
+                ],
+                'WES水面线.csv',
+              ),
+            )
+          }}
+        >
+          导出水面线（CSV）
         </button>
         <button
           type="button"
@@ -67,7 +118,20 @@ export default function App() {
               </p>
             </section>
           ) : (
-            <ResultPanel result={result} />
+            <>
+              <ResultPanel result={result} />
+              {result.ok ? (
+                <Suspense
+                  fallback={
+                    <section className="charts">
+                      <p className="results__note">正在加载图表组件…</p>
+                    </section>
+                  }
+                >
+                  <ChartsPanel input={input} output={result.value} />
+                </Suspense>
+              ) : null}
+            </>
           )}
         </div>
       </div>
