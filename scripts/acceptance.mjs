@@ -302,6 +302,11 @@ async function main() {
     record('参数表单渲染出字段', fieldCount > 20, `${fieldCount} 个字段`)
 
     // ── 2. Service Worker 注册并激活 ─────────────────────────
+    //
+    // ⚠️ `navigator.serviceWorker.ready` 只保证"已经有激活的 worker"，**不保证它已经
+    // 走完 activating**——线上首次安装时实测读到 `activating`，与本地跑的结果不一致。
+    // 那是判据在量一个瞬间，不是在量结果：后面两条"断网仍可用"明明通过了。
+    // 所以这里等它到终态，超时才算失败（等待上限 15 s，不放宽标准，只消除时序）。
     const swState = await cdp.evaluate(
       `(async () => {
          if (!('serviceWorker' in navigator)) return 'unsupported'
@@ -310,6 +315,12 @@ async function main() {
            new Promise((r) => setTimeout(() => r(null), 15000)),
          ])
          if (!reg) return 'timeout'
+         const deadline = Date.now() + 15000
+         while (Date.now() < deadline) {
+           const s = (reg.active || {}).state
+           if (s === 'activated' || s === 'redundant') return s
+           await new Promise((r) => setTimeout(r, 100))
+         }
          return (reg.active || {}).state ?? 'no-active'
        })()`,
       true,

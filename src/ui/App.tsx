@@ -51,7 +51,9 @@ export default function App() {
       <header className="shell__header">
         <p className="shell__eyebrow">SL 253-2018《溢洪道设计规范》</p>
         <h1 className="shell__title">WES 型实用堰泄流能力与堰流水面线计算程序</h1>
-        <p className="shell__badge">阶段 4 · 参数输入 / 计算过程 / 曲线 / 计算书 / 算例</p>
+        <p className="shell__badge">
+          阶段 6（自动化部分）· 参数输入 / 计算过程 / 曲线 / 计算书 / 算例 / 离线可用
+        </p>
       </header>
 
       <div className="toolbar">
