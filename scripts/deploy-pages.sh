@@ -28,7 +28,8 @@
 set -euo pipefail
 
 REPO_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-SELF="$REPO_DIR/$(basename "${BASH_SOURCE[0]}")"
+# 脚本自身的绝对路径（进 devShell 重跑时要按原样调起来）
+SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 cd "$REPO_DIR"
 
 BASE_OVERRIDE=''
