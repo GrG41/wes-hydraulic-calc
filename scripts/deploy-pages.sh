@@ -2,18 +2,20 @@
 #
 # 把 `dist/` 发布到 GitHub Pages（`gh-pages` 分支）。
 #
-# 这个脚本的**重点不是推送，是拒绝推送**：任何一道验收过不去就停下。
-# 顺序固定为
+# 这个脚本的**重点不是推送，是"发出去的东西不对就把站点退回去"**。顺序固定为
 #
 #   1. 工作区必须是干净的（否则"发出去的这版"对应不上任何一个提交）
 #   2. 构建（typecheck → 现取测试收据的验收摘要页 → vite build，基路径由远端推导）
-#   3. PWA 静态验收          scripts/verify-pwa.mjs
-#   4. 真实浏览器验收（本地，按部署基路径托管）  scripts/acceptance.mjs --base=…
+#   3. PWA 静态验收          scripts/verify-pwa.mjs（不需要服务器、不开端口）
+#   4. 记下上一版 gh-pages（回滚用）
 #   5. 推送 dist/ 到 gh-pages
-#   6. 等 GitHub 构建完成，再对**线上 URL** 跑一遍真实浏览器验收（--url=…）
+#   6. 等 GitHub 构建完成
+#   7. 对**线上 URL** 跑真实浏览器验收（scripts/acceptance.mjs --url=…）
+#   8. 第 7 步没过 → **自动把站点退回第 4 步记下的那一版**，并以失败退出
 #
-# 第 4 步验的是"我本地按部署路径托管的那份"，第 6 步验的才是"工程师真正打开的那一份"——
-# 两步都要，因为两者不是同一件东西。
+# ⚠️ 本地**不再**跑一遍浏览器验收（2026-10-08 起不再起本地服务、不开本地端口）。
+# 代价写在明处：**坏的构建会先上站**，直到第 7 步发现它、第 8 步把它退回去——
+# 中间那段时间站点是可被访问的（通常 1～2 分钟）。换来的是"验的就是工程师打开的那一份"。
 #
 # 用法：
 #   nix develop --command pnpm deploy:pages
@@ -23,7 +25,8 @@
 #   --base=/<repo>/     覆盖部署基路径（默认由 origin 远端推导）
 #   --branch=<name>     目标分支（默认 gh-pages）
 #   --allow-dirty       允许在工作区有未提交改动时部署（会在验收摘要页上留痕）
-#   --skip-live         跳过第 6 步（线上验收）——只在明确知道线上还没就绪时用
+#   --skip-live         跳过第 7、8 步——**这次发布不构成"已验收"**，只在明确知道
+#                       线上还没就绪时用
 #
 set -euo pipefail
 
@@ -118,11 +121,18 @@ fi
 say "构建（VITE_BASE=${BASE_PATH}）"
 VITE_BASE="$BASE_PATH" pnpm run build
 
-# ── 4. 静态验收 ──────────────────────────────────────────────────────
+# ── 4. 静态验收（不需要服务器、不开端口）────────────────────────────
 say "PWA 静态验收"
 node scripts/verify-pwa.mjs
 
-# ── 5. 真实浏览器验收（本地，按部署基路径托管）───────────────────────
+# ── 5. 记录上一版（发布后若验收不过，用它回滚）───────────────────────
+PREV_SHA=$(git ls-remote --heads "$REMOTE_URL" "$BRANCH" 2>/dev/null | awk '{print $1}')
+if [ -n "$PREV_SHA" ]; then
+  echo "上一版 gh-pages：${PREV_SHA:0:7}（发布后验收不过则回滚到它）"
+else
+  echo "gh-pages 尚无内容 —— 这是首次发布，**没有可回滚的版本**"
+fi
+
 resolve_chromium() {
   if [ -n "${CHROMIUM_BIN:-}" ] && [ -x "${CHROMIUM_BIN}" ]; then
     printf '%s' "$CHROMIUM_BIN"
@@ -139,12 +149,10 @@ resolve_chromium() {
 
 CHROME=$(resolve_chromium || true)
 if [ -z "$CHROME" ]; then
-  echo "✗ 找不到 Chromium —— 浏览器验收**没跑**，因此这次发布不算通过。" >&2
+  echo "✗ 找不到 Chromium —— 发布后的线上验收**跑不了**，因此这次发布不算通过。" >&2
   echo "  设 CHROMIUM_BIN=<可执行文件> 或把 chromium 放进 PATH 后重试。" >&2
   exit 1
 fi
-say "真实浏览器验收（本地：${PAGES_URL} 的等价物）"
-CHROMIUM_BIN="$CHROME" node scripts/acceptance.mjs --base="$BASE_PATH"
 
 # ── 6. 推送 dist/ 到 gh-pages ────────────────────────────────────────
 say "发布到 ${BRANCH}"
@@ -200,13 +208,50 @@ else
 fi
 
 # ── 8. 线上验收（这一步才是"工程师打开的那一份"）────────────────────
+#
+# 本地**不再**跑一遍浏览器验收：本地不再起服务、也不再有本地端口。
+# 代价是"坏的构建会先上站"——所以这一步失败时**自动回滚到上一版**。
 if [ "$SKIP_LIVE" -eq 1 ]; then
   echo "⚠️  --skip-live：**线上验收没有做**，这次发布不构成'已验收'。"
   exit 0
 fi
 
 say "线上验收：${PAGES_URL}"
-CHROMIUM_BIN="$CHROME" node scripts/acceptance.mjs --url="$PAGES_URL"
+live_ok=0
+if CHROMIUM_BIN="$CHROME" node scripts/acceptance.mjs --url="$PAGES_URL"; then
+  live_ok=1
+fi
 
-say "完成"
-printf '  站点：%s\n  对应提交：%s\n' "$PAGES_URL" "$COMMIT_SHORT"
+if [ "$live_ok" -eq 1 ]; then
+  say "完成"
+  printf '  站点：%s\n  对应提交：%s\n' "$PAGES_URL" "$COMMIT_SHORT"
+  exit 0
+fi
+
+# ── 9. 线上验收没过：把站点退回上一版 ────────────────────────────────
+say "线上验收未通过 —— 回滚"
+if [ -z "$PREV_SHA" ]; then
+  echo "✗ 这是首次发布，没有可回滚的版本 —— 站点现在处于**未通过验收**的状态，需人工处置。" >&2
+  exit 1
+fi
+
+if command -v gh >/dev/null 2>&1; then
+  # 用 API 直接改 ref：临时目录里只有新提交的对象，本地 push 回旧提交会因缺对象而失败。
+  gh api -X PATCH "repos/$OWNER/$NAME/git/refs/heads/$BRANCH" \
+    -f "sha=$PREV_SHA" -F force=true >/dev/null
+  echo "  已把 gh-pages 退回 ${PREV_SHA:0:7}（GitHub API）"
+else
+  git -C "$STAGE" fetch -q origin "$BRANCH"
+  git -C "$STAGE" push -q --force origin "${PREV_SHA}:refs/heads/${BRANCH}"
+  echo "  已把 gh-pages 退回 ${PREV_SHA:0:7}（git push）"
+fi
+if command -v gh >/dev/null 2>&1; then
+  for i in $(seq 1 60); do
+    status=$(gh api "repos/$OWNER/$NAME/pages/builds/latest" --jq '.status' 2>/dev/null || echo unknown)
+    [ "$status" = 'built' ] && break
+    sleep 5
+  done
+  echo "  回滚后 Pages 构建：${status}"
+fi
+echo "  回滚完成：站点回到 ${PREV_SHA:0:7}。**本次提交 ${COMMIT_SHORT} 没有发布成功。**" >&2
+exit 1
