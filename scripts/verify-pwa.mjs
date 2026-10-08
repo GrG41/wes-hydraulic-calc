@@ -10,6 +10,8 @@
  *   3. 预缓存清单中的每个 URL 在 dist 下**确实存在**（避免 404 导致安装失败）
  *   4. manifest 必填项齐全（名称、图标、start_url、display）
  *   5. 入口 HTML 已注入 SW 注册，且**未引用任何外部来源**
+ *   6. **基路径自洽**：index.html 资源前缀 = manifest.start_url = manifest.scope
+ *      （三者不一致时，部署到 `/<repo>/` 子路径会整页白屏）
  *
  * 用法：pnpm build && node scripts/verify-pwa.mjs
  * 退出码非 0 即失败，可直接用于 CI。
@@ -125,7 +127,47 @@ if (external.length > 0) {
   ok('index.html 未引用任何外部资源')
 }
 
-// ── 7. 运行时不联网：只对**真正的取数型调用**判失败 ───────────────
+// ── 7. 基路径自洽 ────────────────────────────────────────────────
+//
+// 反例（2026-10-08 实测）：产物里写死 `/assets/…`，而站点部署在
+// `https://<user>.github.io/<repo>/` —— 浏览器去域名根取资源，全部 404，页面白屏。
+// 当时**没有任何判据会响**，是我用真实浏览器打开才知道的。这条守在这里：
+// index.html 里资源引用的前缀、manifest 的 start_url、manifest 的 scope，
+// 三者必须指向同一个基路径。
+const absRefs = [...html.matchAll(/(?:src|href)="(\/[^"]*)"/g)].map((m) => m[1])
+if (absRefs.length === 0) {
+  fail('index.html 中没有任何绝对路径资源引用，无法判定基路径（构建是否正常？）')
+} else {
+  let common = absRefs[0]
+  for (const r of absRefs) {
+    while (!r.startsWith(common)) common = common.slice(0, -1)
+  }
+  const htmlBase = common.slice(0, common.lastIndexOf('/') + 1) || '/'
+  const pathOf = (u) => {
+    try {
+      return new URL(u, 'http://placeholder.invalid').pathname
+    } catch {
+      return null
+    }
+  }
+  const mfPath = join(DIST, 'manifest.webmanifest')
+  const mf = existsSync(mfPath) ? JSON.parse(readFileSync(mfPath, 'utf8')) : {}
+  const startPath = pathOf(mf.start_url ?? '')
+  const scopePath = pathOf(mf.scope ?? '')
+  const bad = []
+  if (startPath !== htmlBase) bad.push(`manifest.start_url = ${JSON.stringify(mf.start_url)}（应为 ${htmlBase}）`)
+  if (scopePath !== htmlBase) bad.push(`manifest.scope = ${JSON.stringify(mf.scope)}（应为 ${htmlBase}）`)
+  if (bad.length > 0) {
+    fail(
+      `基路径不自洽，部署到子路径会白屏：index.html 的资源前缀为 ${htmlBase}，但 ${bad.join('；')}。\n` +
+        `    构建时应设 VITE_BASE=<部署基路径>（见 docs/DEPLOYMENT.md）。`,
+    )
+  } else {
+    ok(`基路径自洽：index.html 资源前缀 = manifest.start_url = manifest.scope = ${htmlBase}`)
+  }
+}
+
+// ── 8. 运行时不联网：只对**真正的取数型调用**判失败 ───────────────
 //
 // 注意区分两类外部字符串（初版脚本曾把两者都判为失败，属误报）：
 //   · **XML 命名空间**（如 http://schemas.openxmlformats.org/...）—— 只是标识符，

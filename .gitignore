@@ -11,6 +11,10 @@ playwright-report/
 test-results/
 .typst-cache/
 
+# 生成物：「验收摘要」页由 scripts/gen-verification-page.mjs 在每次构建时现取数据生成，
+# 不入库（入库就会有一份会过期的副本）。见 docs/DEPLOYMENT.md。
+public/verification.html
+
 # 编辑器与系统
 .DS_Store
 .idea/

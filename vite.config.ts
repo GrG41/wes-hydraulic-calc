@@ -2,7 +2,20 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+/**
+ * 部署基路径（Vite `base`）。
+ *
+ * 默认 `/`：本地开发、`vite preview`、以及部署在**域名根路径**下时都用它。
+ * GitHub Pages 的**项目站**位于 `https://<user>.github.io/<repo>/`，此时必须以
+ * `VITE_BASE=/<repo>/` 构建——否则产物里的 `/assets/…` 指向域名根，页面白屏。
+ *
+ * 这里统一补正首尾斜杠，使 `VITE_BASE=wes-x` 这种写法不会静默产出错误 URL。
+ */
+const rawBase = process.env.VITE_BASE ?? '/'
+const base = `/${rawBase.replace(/^\/+|\/+$/g, '')}/`.replace(/^\/\/$/, '/')
+
 export default defineConfig({
+  base,
   /**
    * Vite 的 DNS 重绑定防护：请求的 `Host` 头不在允许列表内即直接拒绝
    * （报错 `This host ... is not allowed`）。**IP 地址默认放行，主机名必须显式列出。**
@@ -34,8 +47,10 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'any',
-        start_url: '/',
-        scope: '/',
+        // ⚠️ 不要在此声明 `start_url` / `scope`：vite-plugin-pwa 的默认值就是
+        // `base`（见其 generateWebManifest 的 defaultManifest），而手写 `'/'`
+        // 会在项目站（`/wes-hydraulic-calc/`）下把作用域钉死在域名根，
+        // 安装到主屏后落到 404。让 base 做单一来源。
         categories: ['engineering', 'productivity', 'utilities'],
         icons: [
           { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },

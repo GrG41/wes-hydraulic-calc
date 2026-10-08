@@ -6,15 +6,17 @@
   "description": "WES 型实用堰泄流能力与堰流水面线计算程序（按 SL 253-2018）",
   "scripts": {
     "dev": "vite",
-    "build": "pnpm run typecheck && vite build",
+    "build": "pnpm run typecheck && pnpm run gen:verification && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.core.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "gen:verification": "node scripts/gen-verification-page.mjs",
     "verify:pwa": "node scripts/verify-pwa.mjs",
     "verify": "pnpm run build && node scripts/verify-pwa.mjs",
     "acceptance": "node scripts/acceptance.mjs",
-    "verify:all": "pnpm run build && node scripts/verify-pwa.mjs && node scripts/acceptance.mjs"
+    "verify:all": "pnpm run build && node scripts/verify-pwa.mjs && node scripts/acceptance.mjs",
+    "deploy:pages": "bash scripts/deploy-pages.sh"
   },
   "dependencies": {
     "echarts": "^6.1.0",
