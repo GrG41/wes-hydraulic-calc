@@ -188,9 +188,14 @@ iOS Safari 对未安装到主屏的站点长期不用可能回收）。界面已
 pnpm install
 pnpm typecheck          # 类型检查（含 core 零浏览器依赖约束）
 pnpm test               # 157 项单元与验证测试
-pnpm verify             # 构建 + PWA 静态验收（8 项）
-nix shell nixpkgs#chromium --command pnpm acceptance   # 浏览器端到端验收（9 项）
+pnpm verify             # 构建 + PWA 静态验收
+pnpm acceptance         # 浏览器端到端验收（9 项）——验**已发布的站点**
 ```
 
 > 说明：`pnpm acceptance` 需要 PATH 中有 Chromium，或用 `CHROMIUM_BIN` 指定路径。
 > 脚本**不硬编码 `/nix/store/...` 路径**（该路径在 gc 后失效）。
+>
+> **2026-10-08 起改口径**：验收对象是 GitHub Pages 上**已经发布的那一份**
+> （地址由 `origin` 推导，`--url=` 可覆盖），脚本不再在本地起静态服务。
+> 本报告 §2.4 记录的那次验收（2026-09-14）当时是用本地托管完成的；
+> 判据本身（9 项）未变，改的是"验哪一份"。

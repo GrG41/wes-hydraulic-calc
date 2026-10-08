@@ -39,14 +39,18 @@ WES 型实用堰泄流能力与堰流水面线计算程序。技术依据：**SL
 ```bash
 nix develop          # 进入 devShell（Node 22 + pnpm）
 pnpm install
-pnpm dev             # 开发服务器
+pnpm dev             # 开发服务器（只服务本机；不对局域网开放）
 pnpm build           # 类型检查 + 生成验收摘要页 + 构建（含 PWA）
-pnpm preview         # 预览构建产物
 pnpm test            # 单元测试
 pnpm typecheck       # 类型检查（含 core 层零 DOM 校验）
-pnpm verify          # 构建 + PWA 静态验收
-pnpm acceptance      # 真实浏览器端到端验收（需 Chromium 在 PATH 或 CHROMIUM_BIN）
+pnpm verify          # 构建 + PWA 静态验收（12 项，不需要服务器）
+pnpm acceptance      # 真实浏览器端到端验收**已发布的站点**（需 Chromium 在 PATH 或 CHROMIUM_BIN）
+pnpm deploy:pages    # 构建 → 静态验收 → 发布到 GitHub Pages → 线上验收（不过则自动回滚）
 ```
+
+> **发布与验收都走 GitHub Pages**（2026-10-08 起）。本地不再起对外服务、不开固定端口：
+> `pnpm acceptance` 验的是**线上那一份**（地址由 `origin` 推导，也可 `--url=` 指定），
+> 本地 `dist/` 由 `pnpm verify` 静态检查。流程与取舍见 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)。
 
 ## 目录结构
 

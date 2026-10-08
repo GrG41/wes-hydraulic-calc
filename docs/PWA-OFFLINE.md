@@ -71,22 +71,17 @@ pnpm verify          # = pnpm build && node scripts/verify-pwa.mjs
 
 ### 2.2 运行时可达性
 
-以静态服务托管 `dist/`，逐一请求预缓存清单中的全部 URL：
-
-```
-预缓存 URL 可达性检查（共 11 项）—— 失败项：0
-额外探测：/ 200、/sw.js 200、/registerSW.js 200、/manifest.webmanifest 200
-```
-
-> ⚠️ 注意：`vite preview` **绑定 IPv6**，须用 `http://localhost:4173` 或 `[::1]` 访问；
-> 用 `127.0.0.1` 会连不上（返回 000）。
+**2026-10-08 起改为在线上站点上核**：`scripts/acceptance.mjs` 对**已发布的那一份**
+逐一发起真实请求（含预缓存清单里的全部 URL），不再用本地静态服务托管 `dist/`。
+因此本节原先记录的"本地静态服务可达性检查"连同 `vite preview` 一并退役——
+本地不再起服务、不开端口，见 [`DEPLOYMENT.md`](DEPLOYMENT.md)。
 
 ### 2.3 阶段 6 的浏览器验收（**已完成**，见 ACCEPTANCE.md）
 
 下表是阶段 5 结束时"尚需真实浏览器"的项。**阶段 6 已用 CDP 驱动的真实 Chromium
 全部跑通**（含断网重载、断网完成计算），结果记录在
 [`ACCEPTANCE.md`](ACCEPTANCE.md) §2.4（9 项）与 [`DEPLOYMENT.md`](DEPLOYMENT.md)
-（线上站点 9 项）。其中两项仍**未执行**，如实留着：
+（线上站点 9 项）。其中三项仍**未执行**，如实留着：
 
 | 项 | 状态 |
 |---|---|
@@ -94,7 +89,7 @@ pnpm verify          # = pnpm build && node scripts/verify-pwa.mjs
 | Service Worker 实际激活并接管（`navigator.serviceWorker.ready`） | ✅ 已在阶段 6 验证（判据等 `activated` **终态**，不量瞬间） |
 | 应用安装到桌面/主屏（`beforeinstallprompt` / iOS「添加到主屏幕」） | ❌ **未执行** |
 | 跨浏览器（Chrome / Edge / Firefox / Safari）行为一致性 | ⚠️ 仅 **Chromium 内核**；Firefox / Safari 未执行 |
-| iOS Safari 的 SW 与存储配额行为 | ⏳ 阶段 6 |
+| iOS Safari 的 SW 与存储配额行为 | ❌ **未执行**（需真机） |
 
 ## 3. 已知限制与风险
 
