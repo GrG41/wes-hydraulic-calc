@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 /**
  * 部署基路径（Vite `base`）。
  *
- * 默认 `/`：本地开发、`vite preview`、以及部署在**域名根路径**下时都用它。
+ * 默认 `/`：本地开发服务器与部署在**域名根路径**下时用它。
  * GitHub Pages 的**项目站**位于 `https://<user>.github.io/<repo>/`，此时必须以
  * `VITE_BASE=/<repo>/` 构建——否则产物里的 `/assets/…` 指向域名根，页面白屏。
  *
@@ -15,29 +15,19 @@ const rawBase = process.env.VITE_BASE ?? '/'
 const base = `/${rawBase.replace(/^\/+|\/+$/g, '')}/`.replace(/^\/\/$/, '/')
 
 /**
- * 开发/预览服务器允许的主机名（Vite 的 DNS 重绑定防护）。
+ * 本地服务器**不再对外**。
  *
- * 由环境变量 `VITE_DEV_HOSTS` 提供，逗号分隔，例如
- * `VITE_DEV_HOSTS=dev.lan,workstation.lan pnpm dev`。默认空 = 只有 IP 与 localhost 可用。
+ * 这里原先配了 `server.allowedHosts` / `preview.allowedHosts`，用来让局域网里的
+ * 其它设备按主机名打开本地 dev/preview（Vite 的 DNS 重绑定防护要求把主机名显式列出）。
+ * 2026-10-08 起改为**只看 GitHub Pages**：发布与验收一律走线上站点，
+ * 本地服务器只服务本机（IP 与 localhost 默认放行），不再需要任何主机名白名单。
  *
- * 需要放行整段子域时可写成前导点的形式（例如 `'.lan'`）——
- * 那等于信任该后缀下的**任意**主机名，非必要不要用。
- *
- * 这里**不写死任何真实主机名**：主机名属于部署环境，不属于仓库。
+ * 因此这里不再声明 `server` / `preview`，也不再读 `VITE_DEV_HOSTS`。
+ * 若哪天又要在别的设备上看本地构建，**先想清楚那是把开发服务器暴露到网段上**，
+ * 再显式加回白名单——默认不开。
  */
-const devHosts = (process.env.VITE_DEV_HOSTS ?? '')
-  .split(',')
-  .map((h) => h.trim())
-  .filter(Boolean)
-
 export default defineConfig({
   base,
-  server: {
-    allowedHosts: devHosts,
-  },
-  preview: {
-    allowedHosts: devHosts,
-  },
   plugins: [
     react(),
     VitePWA({
