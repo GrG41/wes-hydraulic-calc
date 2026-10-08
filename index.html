@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <title>WES 型实用堰泄流能力与堰流水面线计算程序</title>
+    <meta
+      name="description"
+      content="按 SL 253-2018《溢洪道设计规范》计算 WES 型实用堰泄流能力与堰流水面线。全部计算在本机完成，不联网。"
+    />
+
+    <link rel="icon" type="image/svg+xml" href="/wes-hydraulic-calc/favicon.svg" />
+    <link rel="apple-touch-icon" href="/wes-hydraulic-calc/apple-touch-icon.png" />
+
+    <!--
+      向浏览器声明：本页面**只支持暗色**。
+      这一行是要紧的——浏览器（Chrome 的 auto dark / 强制暗色、部分安卓浏览器的
+      "简化暗色"）只对**未声明** color-scheme 的页面做算法暗化；声明之后它就不再动手，
+      也就不会出现"本来就是暗的、又被暗化一遍"的二次暗色。
+      界面侧的同名声明在 src/ui/app.css 的 :root 里（两处必须一致）。
+    -->
+    <meta name="color-scheme" content="dark" />
+
+    <!-- 浏览器 UI / 状态栏配色：与页面底色一致，避免启动时闪一下浅色 -->
+    <meta name="theme-color" content="#11161c" />
+
+    <!-- iOS：以独立应用方式启动（DEC-024 的验收范围含 iOS） -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="WES 堰计算" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <!-- 本项目完全离线，禁止任何外部资源；此声明仅为显式化该约束 -->
+    <meta name="referrer" content="no-referrer" />
+    <script type="module" crossorigin src="/wes-hydraulic-calc/assets/index-C2vU7fwt.js"></script>
+    <link rel="stylesheet" crossorigin href="/wes-hydraulic-calc/assets/index-C2HQDM8Y.css">
+  <link rel="manifest" href="/wes-hydraulic-calc/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/wes-hydraulic-calc/registerSW.js"></script></head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <p style="padding: 2rem; font-family: sans-serif">
+        本程序的计算与界面均需 JavaScript，请启用后重新打开。
+      </p>
+    </noscript>
+  </body>
+</html>

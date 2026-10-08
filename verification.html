@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>验收摘要 · WES 型实用堰计算程序</title>
+<!-- 与计算程序同一套观感：**固定暗色**，并显式声明 color-scheme，
+     让浏览器不再对本页做自动/强制暗化（否则暗色页会被再暗化一遍）。 -->
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#11161c" />
+<style>
+  :root {
+    color-scheme: dark;
+    color-scheme: only dark; /* 支持的浏览器：明确不做任何配色变换；不支持则丢这一行 */
+    --fg:#e6ebf2; --bg:#11161c; --surface:#1a212b; --muted:#a7b4c4; --line:#303a46;
+    --accent:#7cb3ff; --warn-bg:#2e2617; --warn-line:#d9a441; --ok:#6ddc8a;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.7 system-ui,-apple-system,"Noto Sans CJK SC","Source Han Sans SC",sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
+  h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
+  h2 { font-size: 1.15rem; margin: 2.25rem 0 .75rem; padding-bottom:.35rem; border-bottom:1px solid var(--line); }
+  h3 { font-size: 1rem; margin: 1.5rem 0 .5rem; }
+  a { color: var(--accent); }
+  code { background: color-mix(in srgb, var(--fg) 10%, transparent); padding:.1em .35em; border-radius:3px; font-size:.9em; }
+  .lead { color: var(--muted); margin:.25rem 0 0; }
+  .nav { display:flex; gap:1rem; flex-wrap:wrap; margin:1rem 0 0; font-size:.95rem; }
+  .facts { display:grid; grid-template-columns: max-content 1fr; gap:.35rem 1rem; margin:0; }
+  .facts dt { color:var(--muted); }
+  .facts dd { margin:0; overflow-wrap:anywhere; }
+  .tbl { width:100%; border-collapse: collapse; margin:.75rem 0; font-size:.92rem; display:block; overflow-x:auto; }
+  .tbl th, .tbl td { border:1px solid var(--line); padding:.45rem .6rem; text-align:left; vertical-align:top; }
+  .tbl th { background: var(--surface); font-weight:600; }
+  .tbl tbody tr:nth-child(even) { background: color-mix(in srgb, var(--fg) 3%, transparent); }
+  .callout { border-left:4px solid var(--warn-line); background:var(--warn-bg); padding:.9rem 1rem; margin:1rem 0; border-radius:0 4px 4px 0; }
+  .callout p { margin:.4rem 0; }
+  ol, ul { padding-left:1.5rem; }
+  li { margin:.3rem 0; }
+  .ok { color:var(--ok); font-weight:600; }
+  footer { margin-top:3rem; padding-top:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.88rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>验收摘要</h1>
+  <p class="lead">WES 型实用堰泄流能力与堰流水面线计算程序 —— 这版<strong>验过什么、没验什么、怎么自己复核</strong>。</p>
+  <p class="nav"><a href="./">← 返回计算程序</a> <a href="https://github.com/GrG41/wes-hydraulic-calc" rel="noreferrer">仓库（源码与全部文档）</a></p>
+
+  <h2>1. 本页从哪来</h2>
+  <p>本页由构建流程自动生成（<code>scripts/gen-verification-page.mjs</code>），
+  <strong>数字取自本次构建时的实际运行，不是手写</strong>；正文从仓库文档里抽取，随文档更新。
+  生成时测试若有任何一项未通过，本页不会产出。</p>
+
+  <h2>2. 本次构建</h2>
+  <dl class="facts">
+    <dt>程序版本</dt><dd>0.1.0（package.json）</dd>
+    <dt>提交</dt><dd><code>af08b7d</code>（完整：<code>af08b7d3ffc38748eba25995a0a3aff8fa0ce116</code>）</dd>
+    <dt>提交时间</dt><dd>2026-10-08T16:36:01Z</dd>
+    <dt>提交说明</dt><dd>文档同步：发布与验收一律走 GitHub Pages</dd>
+    <dt>分支</dt><dd>main</dd>
+    <dt>工作区</dt><dd>干净（构建内容 == 该提交）</dd>
+    <dt>构建基路径</dt><dd><code>/wes-hydraulic-calc/</code></dd>
+    <dt>生成时间</dt><dd>2026-10-08T16:36:09.249Z</dd>
+    <dt>Node</dt><dd>v22.23.2</dd>
+    <dt>本页生成前实测</dt><dd><span class="ok">157/157 项测试通过</span>（11 个文件，失败 0）</dd>
+  </dl>
+
+  <h2>3. 未经独立数据验证 —— 请先读这一条</h2>
+  <div class="callout">
+<blockquote><p><strong>本程序当前版本的设计范围不含独立的 Validation（确认）环节。</strong> 依据工程师 2026-09-14 的决策（技术依据仅采用 SL 253-2018 单一来源，见 <code>docs/DECISIONS.md</code> DEC-009），本项目<strong>不进行</strong>基于独立数据的 Validation ——即不使用规范算例、模型试验、原型观测或实测泄流曲线作为比对基准。</p><p><strong>因此：本程序的计算结果正确性没有外部证据支撑。</strong> 程序所能保证的仅为 Verification（方程求解是否正确），不能保证模型本身的适用性（是否求解了正确的方程）。<strong>不得以 Verification 结果冒称 Validation 通过。</strong></p><p>使用者在将本程序结果用于设计、复核或审查时，<strong>应自行安排独立校核</strong>。</p></blockquote>
+  </div>
+
+  <h2>4. 自动化验收结果（仓库文档记载）</h2>
+  <p class="lead">2.1 汇总</p>
+<table class="tbl"><thead><tr><th>#</th><th>验收层次</th><th>命令</th><th>结果</th></tr></thead><tbody><tr><td>1</td><td>类型检查</td><td><code>pnpm typecheck</code></td><td>✅ 通过（含 <code>tsconfig.core.json</code> 的零 UI 零浏览器约束）</td></tr><tr><td>2</td><td>单元与验证测试</td><td><code>pnpm test</code></td><td>✅ <strong>157 / 157 通过</strong>（11 个文件）</td></tr><tr><td>3</td><td>构建</td><td><code>pnpm build</code></td><td>✅ 通过</td></tr><tr><td>4</td><td>PWA 静态验收</td><td><code>pnpm verify:pwa</code></td><td>✅ <strong>8 / 8 通过</strong></td></tr><tr><td>5</td><td>浏览器端到端验收</td><td><code>pnpm acceptance</code></td><td>✅ <strong>9 / 9 通过</strong></td></tr></tbody></table>
+
+  <h3>4.1 浏览器端到端验收（真实 Chromium）</h3>
+<p>以 CDP 驱动 <code>dist/</code> 构建产物，脚本 <code>scripts/acceptance.mjs</code>（零第三方依赖）：</p>
+<table class="tbl"><thead><tr><th>#</th><th>检查项</th><th>结果</th></tr></thead><tbody><tr><td>1</td><td>应用在真实浏览器中渲染（React 挂载、标题正确）</td><td>✅</td></tr><tr><td>2</td><td>参数表单渲染出字段</td><td>✅ 30 个字段</td></tr><tr><td>3</td><td>Service Worker <strong>注册并激活</strong></td><td>✅ <code>activated</code></td></tr><tr><td>4</td><td>在线：点击「计算」后出结果</td><td>✅ Q = 1711.82 m³/s，迭代表 14 行</td></tr><tr><td>5</td><td>在线：页面控制台无错误</td><td>✅</td></tr><tr><td>6</td><td><strong>断网后重新加载页面仍可用</strong>（§2.7 核心验收项）</td><td>✅</td></tr><tr><td>7</td><td>浏览器已报告离线（<code>navigator.onLine === false</code>）</td><td>✅</td></tr><tr><td>8</td><td><strong>断网：仍能完成一次完整计算</strong></td><td>✅ Q = 1711.82 m³/s（与在线一致）</td></tr><tr><td>9</td><td>断网：页面控制台无错误</td><td>✅</td></tr></tbody></table>
+<blockquote><p>第 6、8 项是上一阶段明确标注为&quot;需真实浏览器、尚未验证&quot;的项，<strong>本次已闭环</strong>。</p></blockquote>
+
+  <h2>5. 你可以自己复核的步骤</h2>
+  <p class="lead">3.3 手工验收清单</p>
+<p>以下步骤可在任意目标浏览器中人工执行，用于补足上表：</p>
+<h3>A. 基本功能</h3>
+<ol start="1"><li>打开程序，确认标题与参数表显示正常，字段单位可见</li><li>点击「计算」，确认出现流量 Q、系数取值表、<strong>迭代过程全表</strong>、水面线表</li><li>确认两张图（水面线纵剖面、泄流曲线）正常绘制</li></ol>
+<h3>B. 计算正确性抽查（人工核对）</h3>
+<ol start="4"><li>核对系数取值表中的 c / m / ε 是否与标准表 A.2.1-1~3 一致</li><li>核对迭代过程末行的 H₀ 残差与 Q 残差均 ≤ 1×10⁻⁶</li><li>修改堰上水头 H，确认 Q 单调增大且提示&quot;结果已过期&quot;</li></ol>
+<h3>C. 离线能力</h3>
+<ol start="7"><li>首次在线打开后，确认页脚显示&quot;离线就绪&quot;</li><li><strong>断开网络</strong>，刷新页面，确认程序仍可用且能完成计算</li><li>确认页脚在断网时显示&quot;已断网 —— 计算功能可正常使用&quot;</li></ol>
+<h3>D. 数据持久化</h3>
+<ol start="10"><li>保存一个算例，刷新页面，确认算例仍在</li><li>导出算例 JSON，清空站点数据后再导入，确认算例恢复</li><li>导出 Excel 计算书，确认六张工作表齐全、中文正常</li></ol>
+<h3>E. 安装到主屏</h3>
+<ol start="13"><li>桌面 Chrome/Edge：地址栏出现安装图标，安装后以独立窗口启动</li><li>Android Chrome：菜单「添加到主屏幕」，启动后无浏览器地址栏</li><li>iOS Safari：分享 →「添加到主屏幕」，启动后为独立应用</li></ol>
+<h3>F. 错误处理</h3>
+<ol start="16"><li>将「溢流堰总净宽 B」改为 0，确认报输入错误且<strong>不输出任何数值结果</strong></li><li>将「下游水位」抬到堰顶以上但不填 σs，确认报缺失参数错误（<strong>不默认取 1.0</strong>）</li><li>将糙率改为 0.06，确认给出超范围警告但<strong>仍继续计算</strong></li></ol>
+
+  <h2>6. 已知边界（设计决定，非缺陷）</h2>
+<table class="tbl"><thead><tr><th>项</th><th>说明</th><th>依据</th></tr></thead><tbody><tr><td><strong>σs 须人工查图输入</strong></td><td>标准图 A.2.1-3 无法从现有扫描件可靠数字化，淹没工况须由使用者查图后输入，程序不自动取该值</td><td>DEC-021 / DEC-022</td></tr><tr><td><strong>上游堰头曲线几何未实现</strong></td><td>双圆弧 / 三圆弧 / 椭圆的完整几何构造定义在标准图 A.1.2-1~3 中，本期仅输出表 A.1.1 给出的参数</td><td>FORMULAS.md §2.3</td></tr><tr><td><strong>不支持水跃</strong></td><td>检出急流→缓流过渡即报错停止</td><td>Q22-2 = C</td></tr><tr><td><strong>不含带胸墙孔口堰</strong></td><td>本次范围仅开敞式实用堰</td><td>Q3 = A</td></tr><tr><td><strong>表 A.1.3 未转录</strong></td><td>定型设计水头的负压校核表为旋转排版，OCR 输出自相矛盾，按取证纪律不予转录；该表不在主计算链路</td><td>FORMULAS.md §2.4</td></tr><tr><td><strong>泄槽起始水深缺省为临界水深</strong></td><td>工程师确认&quot;由上游堰面曲线推求&quot;但未指定方法，缺省时给出 <code>out-of-range</code> 提示要求复核</td><td>calculate.ts</td></tr><tr><td><strong>上游计算断面为矩形或对称梯形</strong></td><td>复式断面不在本期范围</td><td>DEC-019 A-4</td></tr></tbody></table>
+
+  <h2>7. 验收结论</h2>
+<table class="tbl"><thead><tr><th>维度</th><th>结论</th></tr></thead><tbody><tr><td>类型安全与架构约束</td><td>✅ 通过</td></tr><tr><td>计算内核（157 项测试 + 高精度对比）</td><td>✅ 通过</td></tr><tr><td>离线能力（静态 8 项 + 浏览器 9 项）</td><td>✅ 通过（<strong>Chromium 内核</strong>）</td></tr><tr><td>跨浏览器（Firefox / Safari）</td><td>⚠️ <strong>未执行</strong></td></tr><tr><td>跨平台（Windows / macOS / 移动端）</td><td>⚠️ <strong>未执行</strong></td></tr><tr><td>独立数据验证</td><td>⚠️ <strong>按 DEC-009 不执行</strong></td></tr><tr><td>解析解算例集</td><td>⚠️ <strong>未完成</strong></td></tr></tbody></table>
+<p><strong>结论</strong>：程序在 Chromium 内核桌面环境下，<strong>功能完整、离线可用、无控制台错误</strong>，</p>
+<p>可交付<strong>内部试用</strong>。</p>
+<p>但在完成第 3 节的手工验收（尤其 Firefox / Safari / 移动端）与第 4.2 节的解析解算例集之前，</p>
+<p><strong>不建议用于正式设计成果</strong>。</p>
+
+  <h2>8. 文档与复现</h2>
+  <ul>
+    <li>公式与取值来源：<a href="https://github.com/GrG41/wes-hydraulic-calc/blob/main/docs/FORMULAS.md" rel="noreferrer">docs/FORMULAS.md</a></li>
+    <li>完整验收报告：<a href="https://github.com/GrG41/wes-hydraulic-calc/blob/main/docs/ACCEPTANCE.md" rel="noreferrer">docs/ACCEPTANCE.md</a></li>
+    <li>验证报告（含「不执行独立数据验证」的完整说明）：<a href="https://github.com/GrG41/wes-hydraulic-calc/blob/main/docs/VALIDATION.md" rel="noreferrer">docs/VALIDATION.md</a></li>
+    <li>决策记录：<a href="https://github.com/GrG41/wes-hydraulic-calc/blob/main/docs/DECISIONS.md" rel="noreferrer">docs/DECISIONS.md</a></li>
+    <li>算法设计说明：<a href="https://github.com/GrG41/wes-hydraulic-calc/blob/main/docs/ALGORITHM.md" rel="noreferrer">docs/ALGORITHM.md</a></li>
+  </ul>
+  <p>在本地复现全部验收：</p>
+  <pre><code>pnpm install
+pnpm typecheck    # 类型检查（含 src/core 零浏览器依赖约束）
+pnpm test         # 单元与验证测试
+pnpm verify       # 构建 + PWA 静态验收
+nix shell nixpkgs#chromium --command pnpm acceptance   # 真实浏览器端到端验收</code></pre>
+
+  <footer>
+    本页由 <code>scripts/gen-verification-page.mjs</code> 生成于 2026-10-08T16:36:09.250Z，
+    对应提交 <code>af08b7d</code>。
+    文档与源码：<a href="https://github.com/GrG41/wes-hydraulic-calc" rel="noreferrer">github.com/GrG41/wes-hydraulic-calc</a>。
+    计算依据：SL 253-2018《溢洪道设计规范》。
+  </footer>
+</main>
+</body>
+</html>

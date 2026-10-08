@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/wes-hydraulic-calc/sw.js', { scope: '/wes-hydraulic-calc/' })})}
