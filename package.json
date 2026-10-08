@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.core.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "verify:pwa": "node scripts/verify-pwa.mjs",
+    "verify": "pnpm run build && node scripts/verify-pwa.mjs"
   },
   "dependencies": {
     "echarts": "^6.1.0",

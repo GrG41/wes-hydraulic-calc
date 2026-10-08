@@ -15,6 +15,7 @@ import { useParameterStore } from '../store/parameterStore'
 import ParameterForm from './ParameterForm'
 import ResultPanel from './ResultPanel'
 import CasePanel from './CasePanel'
+import OfflineStatus from './OfflineStatus'
 
 /**
  * 图表按需加载。
@@ -164,6 +165,7 @@ export default function App() {
       </div>
 
       <footer className="shell__footer">
+        <OfflineStatus />
         <p>
           计算全部在本地完成，不联网。公式与取值来源见 <code>docs/FORMULAS.md</code>，
           决策记录见 <code>docs/DECISIONS.md</code>。
