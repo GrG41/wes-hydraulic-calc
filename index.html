@@ -13,13 +13,22 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
-    <!-- 主题色（浅色） -->
-    <meta name="theme-color" content="#1a5fb4" />
+    <!--
+      向浏览器声明：本页面**只支持暗色**。
+      这一行是要紧的——浏览器（Chrome 的 auto dark / 强制暗色、部分安卓浏览器的
+      "简化暗色"）只对**未声明** color-scheme 的页面做算法暗化；声明之后它就不再动手，
+      也就不会出现"本来就是暗的、又被暗化一遍"的二次暗色。
+      界面侧的同名声明在 src/ui/app.css 的 :root 里（两处必须一致）。
+    -->
+    <meta name="color-scheme" content="dark" />
+
+    <!-- 浏览器 UI / 状态栏配色：与页面底色一致，避免启动时闪一下浅色 -->
+    <meta name="theme-color" content="#11161c" />
 
     <!-- iOS：以独立应用方式启动（DEC-024 的验收范围含 iOS） -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="WES 堰计算" />
     <meta name="format-detection" content="telephone=no" />
 

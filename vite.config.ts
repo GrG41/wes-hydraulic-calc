@@ -51,8 +51,11 @@ export default defineConfig({
           '按 SL 253-2018《溢洪道设计规范》计算 WES 型实用堰泄流能力与堰流水面线',
         lang: 'zh-CN',
         dir: 'ltr',
-        theme_color: '#1a5fb4',
-        background_color: '#ffffff',
+        // 界面固定暗色（见 src/ui/app.css 与 index.html 的 color-scheme 声明）。
+        // manifest 的两色取自同一组 token：theme_color 用在任务切换/状态栏，
+        // background_color 用在启动闪屏——若留浅色，安装到主屏后启动会先白闪一下。
+        theme_color: '#11161c',
+        background_color: '#11161c',
         display: 'standalone',
         orientation: 'any',
         // ⚠️ 不要在此声明 `start_url` / `scope`：vite-plugin-pwa 的默认值就是
