@@ -254,6 +254,17 @@ export interface WaterProfileSpec {
   readonly stationStep: number
   /** 上游端起始水深，m（由上游堰面曲线推求，Q21-2 = B） */
   readonly upstreamDepth: number
+  /**
+   * 起点桩号处的槽底高程，m。
+   * 桩号按沿槽量取，槽底高程沿程下降 `Δs · i`（标准 A.3.1：i = sinθ）。
+   * 缓流分支需据此把下游控制水位换算为水深；缺省则只推算急流分支。
+   */
+  readonly startBedElevation?: number
+  /**
+   * 下游控制水位，m（高程）。给定后程序**另算缓流分支**（自下游端向上游推算），
+   * 两个分支都输出，由使用者按流态判断（Q21-3 = C、Q21-4 = 需要）。
+   */
+  readonly downstreamWaterLevel?: number
   readonly alpha?: number
   readonly tolerance?: number
 }
@@ -429,15 +440,119 @@ export function solveWaterProfile(spec: WaterProfileSpec): CalcResult<WaterProfi
     stations.push(next)
   }
 
+  // ── 缓流分支（自下游端向上游推算，Q21-3 = C）─────────────────
+  const warnings: Diagnostic[] = []
+  let subcritical: WaterProfileStationResult[] | null = null
+  if (spec.downstreamWaterLevel !== undefined && spec.startBedElevation !== undefined) {
+    const bedAtEnd = spec.startBedElevation - (spec.endStation - spec.startStation) * spec.bedSlope
+    const endDepth = spec.downstreamWaterLevel - bedAtEnd
+    if (!(endDepth > 0)) {
+      warnings.push({
+        level: 'out-of-range',
+        code: 'DOWNSTREAM_DEPTH_NON_POSITIVE',
+        message:
+          `下游控制水位 ${spec.downstreamWaterLevel} m 低于终点槽底高程 ${bedAtEnd.toFixed(3)} m，` +
+          '缓流分支无法起算，仅输出急流分支。',
+        field: 'downstreamWaterLevel',
+        value: spec.downstreamWaterLevel,
+        limit: bedAtEnd,
+      })
+    } else if (endDepth <= criticalDepth(spec.discharge, spec.width)) {
+      // 缓流分支必须由缓流边界起算。下游水深低于临界水深时下游本身是急流，
+      // 不存在缓流分支 —— 不得凭此造出一条假分支。
+      const hcHere = criticalDepth(spec.discharge, spec.width)
+      warnings.push({
+        level: 'out-of-range',
+        code: 'DOWNSTREAM_DEPTH_NOT_SUBCRITICAL',
+        message:
+          `终点水深 ${endDepth.toFixed(3)} m 不大于临界水深 ${hcHere.toFixed(3)} m，下游为急流，` +
+          '不存在缓流分支，仅输出急流分支。若确需缓流分支，请提高下游控制水位。',
+        field: 'downstreamWaterLevel',
+        value: endDepth,
+        limit: hcHere,
+      })
+    } else {
+      const reverse: WaterProfileStationResult[] = [
+        toStation(spec.endStation, endDepth, spec, 0),
+      ]
+      let failed = false
+      for (let k = 1; k <= count; k += 1) {
+        const prev = reverse[reverse.length - 1]!
+        const target = Math.max(spec.startStation, spec.endStation - k * spec.stationStep)
+        const deltaLength = prev.station - target
+        if (!(deltaLength > 0)) break
+        const solved = solveAdjacentDepth({
+          discharge: spec.discharge,
+          width: spec.width,
+          roughness: spec.roughness,
+          bedSlope: spec.bedSlope,
+          bedAngleDeg: spec.bedAngleDeg,
+          deltaLength,
+          knownDepth: prev.depth,
+          direction: 'upstream',
+          ...(spec.alpha === undefined ? {} : { alpha: spec.alpha }),
+          ...(spec.tolerance === undefined ? {} : { tolerance: spec.tolerance }),
+        })
+        if (!solved.ok) {
+          failed = true
+          break
+        }
+        reverse.push(toStation(target, solved.value, spec, deltaLength))
+      }
+      if (failed) {
+        warnings.push({
+          level: 'out-of-range',
+          code: 'SUBCRITICAL_BRANCH_UNSOLVED',
+          message: '缓流分支在向上游推算时无解，仅输出急流分支。请检查下游控制水位与分段步长。',
+          field: 'downstreamWaterLevel',
+          value: spec.downstreamWaterLevel,
+        })
+      } else {
+        subcritical = reverse.reverse() // 转为桩号升序
+      }
+    }
+  }
+
+  // ── 两分支交叉 → 水跃（Q22-2 = C：不支持，报错提示）─────────
+  if (subcritical) {
+    const subByStation = new Map(subcritical.map((s) => [s.station, s.depth]))
+    for (const s of stations) {
+      const d = subByStation.get(s.station)
+      if (d !== undefined && s.depth >= d) {
+        return {
+          ok: false,
+          diagnostics: [
+            ...warnings,
+            {
+              level: 'failure',
+              code: 'HYDRAULIC_JUMP_DETECTED',
+              message:
+                `桩号 ${s.station} m 处急流分支水深 ${s.depth.toFixed(3)} m 已达到缓流分支水深 ${d.toFixed(3)} m，` +
+                '两分支在此交会，存在急流→缓流过渡（水跃）。本期不支持水跃计算（Q22-2 = C），' +
+                '请调整下游控制水位或分段。',
+              field: 'station',
+              value: s.station,
+            },
+          ],
+        }
+      }
+    }
+  }
+
   return {
     ok: true,
     value: {
-      branches: [{ branch: 'supercritical', direction: 'downstream', stations }],
+      branches: [
+        { branch: 'supercritical', direction: 'downstream', stations },
+        ...(subcritical
+          ? [{ branch: 'subcritical' as const, direction: 'upstream' as const, stations: subcritical }]
+          : []),
+      ],
       criticalDepth: criticalDepth(spec.discharge, spec.width),
       criticalSlope: criticalSlope(spec.discharge, spec.width, spec.roughness),
       crossingStation,
       hydraulicJumpDetected,
     },
-    diagnostics,
+    diagnostics: warnings,
   }
 }

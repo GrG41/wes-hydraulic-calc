@@ -195,3 +195,76 @@ describe('水面线推算（分段求和）', () => {
     expect(r.ok).toBe(false)
   })
 })
+
+describe('双分支推算（Q21-3 = C：缓流与急流两者都算）', () => {
+  // 缓坡（i = 0.002）；临界水深 2.168 m；终点桩号 30 处槽底高程 100 − 30×0.002 = 99.94 m
+  const spec = {
+    discharge: 100,
+    width: 10,
+    roughness: 0.014,
+    bedSlope: 0.002,
+    bedAngleDeg: 0.1146,
+    startStation: 0,
+    endStation: 30,
+    stationStep: 5,
+    upstreamDepth: 1.2,
+    startBedElevation: 100,
+  }
+
+  it('未给下游控制水位时只输出急流分支', () => {
+    const r = solveWaterProfile(spec)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.branches.length).toBe(1)
+    expect(r.value.branches[0]!.branch).toBe('supercritical')
+  })
+
+  it('给定足够高的下游控制水位时应同时输出两个分支', () => {
+    // 下游水位 102.5 m → 终点水深 2.56 m > 临界水深 2.168 m，为合法缓流边界
+    const r = solveWaterProfile({ ...spec, downstreamWaterLevel: 102.5 })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    const labels = r.value.branches.map((b) => b.branch).sort()
+    expect(labels).toEqual(['subcritical', 'supercritical'])
+  })
+
+  it('缓流分支应自下游向上游推算，且桩号升序排列、流态为缓流', () => {
+    const r = solveWaterProfile({ ...spec, downstreamWaterLevel: 102.5 })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    const sub = r.value.branches.find((b) => b.branch === 'subcritical')!
+    expect(sub.direction).toBe('upstream')
+    expect(sub.stations[0]!.station).toBe(0)
+    expect(sub.stations[sub.stations.length - 1]!.station).toBe(30)
+    for (let i = 1; i < sub.stations.length; i += 1) {
+      expect(sub.stations[i]!.station).toBeGreaterThan(sub.stations[i - 1]!.station)
+      expect(sub.stations[i]!.froude).toBeLessThan(1)
+    }
+  })
+
+  it('下游水位低于终点槽底高程时应告警并只返回急流分支', () => {
+    const r = solveWaterProfile({ ...spec, downstreamWaterLevel: 99 })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.branches.length).toBe(1)
+    expect(r.diagnostics.map((d) => d.code)).toContain('DOWNSTREAM_DEPTH_NON_POSITIVE')
+    expect(r.diagnostics.every((d) => d.level === 'out-of-range')).toBe(true)
+  })
+
+  it('下游水深不超过临界水深时不得造出缓流分支，应告警说明', () => {
+    // 下游水位 101 m → 终点水深 1.06 m，低于临界水深 2.168 m，下游本身是急流
+    const r = solveWaterProfile({ ...spec, downstreamWaterLevel: 101 })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.branches.length).toBe(1)
+    expect(r.diagnostics.map((d) => d.code)).toContain('DOWNSTREAM_DEPTH_NOT_SUBCRITICAL')
+  })
+
+  it('下游水深恰高于临界水深时应能起算缓流分支', () => {
+    // 终点槽底 99.94 m，临界水深 2.168 m → 下游水位需 > 102.108 m
+    const r = solveWaterProfile({ ...spec, downstreamWaterLevel: 102.2 })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.branches.length).toBe(2)
+  })
+})
