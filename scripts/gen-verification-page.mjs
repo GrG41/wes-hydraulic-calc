@@ -94,8 +94,15 @@ try {
     stdio: 'inherit',
   })
   const r = JSON.parse(readFileSync(reportPath, 'utf8'))
+  // ⚠️ 报告里有两个"看起来像文件数"的字段：`numTotalTestSuites` 是**套件（describe）数**，
+  // 不是文件数——本仓实测 48 对 11。取错了不会有任何东西报警，页面上就印出一个错的数
+  // （2026-10-08 真的印过"48 个文件"）。文件列表在 `testResults` 里，取不到就停下。
+  if (!Array.isArray(r.testResults) || r.testResults.length === 0) {
+    rmSync(tmp, { recursive: true, force: true })
+    die('测试报告里没有可用的 testResults 文件列表，无法确定测试文件数 —— 拒绝生成')
+  }
   receipt = {
-    files: r.numTotalTestSuites,
+    files: r.testResults.length,
     total: r.numTotalTests,
     passed: r.numPassedTests,
     failed: r.numFailedTests,
